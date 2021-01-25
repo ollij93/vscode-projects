@@ -1,7 +1,7 @@
 {
-	"name": "projects",
-	"displayName": "Projects",
-	"description": "VSCode projects management utility",
+	"name": "vscode-projects",
+	"displayName": "VSCode Projects",
+	"description": "VSCode git projects management utility",
 	"publisher": "ollij93",
 	"repository": "https://github.com/ollij93/vscode-projects.git",
 	"version": "0.0.1",
@@ -12,14 +12,14 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:projects.selectprojects"
+		"onCommand:vscode-projects.selectproject"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "projects.selectprojects",
-				"title": "Ollij93: Select Projects"
+				"command": "vscode-projects.selectproject",
+				"title": "Ollij93: Select Project"
 			}
 		]
 	},
