@@ -1,8 +1,12 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as cp from 'child_process';
+import * as fs from 'fs';
+import * as http from 'http';
+import * as https from 'https';
+import * as path from 'path';
+import * as os from 'os';
+import * as vscode from 'vscode';
 
 interface GitHubRepo {
 	name: string;
@@ -247,6 +251,21 @@ COLOR_CODES.set("Washington Football Team", {
 });
 
 
+function getGitHubToken(): string {
+	// @@@ - TODO: Error handling
+	try {
+		return JSON.parse(
+			fs.readFileSync(
+				os.homedir() + path.sep + '.githubkeys'
+			).toString()
+		)['ollij93.vscode-projects'];
+	} catch (error) {
+		console.error(error);
+		return "";
+	}
+}
+
+
 function cloneProject(repo: GitHubRepo): string | null {
 	let checkout: string | null = ROOT + repo.name;
 
@@ -341,62 +360,77 @@ function getLocalProject(repo: GitHubRepo) {
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-		// The command has been defined in the package.json file
-		// Now provide the implementation of the command with registerCommand
-		// The commandId parameter must match the command field in package.json
-		let disposable = vscode.commands.registerCommand('vscode-projects.selectproject', () => {
-			// @@@ - TODO: Make this find private repos too
-			// @@@ - TODO: Use a configured username
-			// @@@ - TODO: Handle case where git isn't available - use local checkouts
-			cp.exec('curl -H "Accept: appliction/vnd.github.v3+json" https://api.github.com/users/ollij93/repos',
-				(err: any, stdout: string, stderr: string) => {
-					if (err) {
-						vscode.window.showErrorMessage("OJ93: Error contacting git");
-						console.error("OJ93: Error contacting git");
-						console.log("stdout: " + stdout);
-						console.log("stderr: " + stderr);
-					} else {
-						// Parse the repository JSON and convert into a Map for later use.
-						let reposArray: Array<GitHubRepo> = JSON.parse(stdout);
-						let repos: Map<string, GitHubRepo> = new Map();
-						reposArray.forEach((repo: GitHubRepo) => {
-							repos.set(repo.name, repo);
-						});
-
-						// Display a QuickPick for the user to choose the project
-						vscode.window.showQuickPick(Array.from(repos.keys())).then(
-							(name: string | undefined) => {
-								// Project selected (if name not undefined)
-								if (name === undefined) { return; }
-
-								// Select the right GitHubRepo from the Map
-								let repo: GitHubRepo;
-								let r: GitHubRepo | undefined = repos.get(name);
-								if (r === undefined) {
-									return;
-								} else {
-									repo = r;
-								}
-
-								// Find the code-workspace file for the repo.
-								// If it doesn't exist try and create a new one by cloning the project
-								// Otherwise just open the exising one
-								let path: string = '/home/olijohns/ws/' + repo.name + '.code-workspace';
-								fs.access(path, fs.constants.F_OK, (err: any) => {
-									if (err) {
-										getLocalProject(repo);
-									} else {
-										vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(path), false);
-									}
-								});
-							}
-						);
-					}
+	// The command has been defined in the package.json file
+	// Now provide the implementation of the command with registerCommand
+	// The commandId parameter must match the command field in package.json
+	let disposable = vscode.commands.registerCommand('vscode-projects.selectproject', () => {
+		// @@@ - TODO: Use a configured username
+		// @@@ - TODO: Handle case where git isn't available - use local checkouts
+		let user: string = 'olijohns';
+		let pass: string = getGitHubToken();
+		let auth: string = Buffer.from(user + ':' + pass).toString('base64');
+		let req = https.request(
+			{
+				method: 'GET',
+				hostname: 'api.github.com',
+				path: '/user/repos?visibility=all',
+				port: 443,
+				headers: {
+					authorization: 'Basic ' + auth,
+					'User-Agent': 'other'
 				}
-			);
-		});
-		context.subscriptions.push(disposable);
-	}
+			},
+			(res: http.IncomingMessage) => {
+				let content: string = "";
+				res.on('data', function (chunk) {
+					content += chunk.toString();
+				});
+				res.on('end', () => {
+					// Parse the repository JSON and convert into a Map for later use.
+					let reposArray: Array<GitHubRepo> = JSON.parse(content);
+					let repos: Map<string, GitHubRepo> = new Map();
+					reposArray.forEach((repo: GitHubRepo) => {
+						repos.set(repo.name, repo);
+					});
 
-	// this method is called when your extension is deactivated
-	export function deactivate() { }
+					// Display a QuickPick for the user to choose the project
+					vscode.window.showQuickPick(Array.from(repos.keys()).sort()).then(
+						(name: string | undefined) => {
+							// Project selected (if name not undefined)
+							if (name === undefined) { return; }
+
+							// Select the right GitHubRepo from the Map
+							let repo: GitHubRepo;
+							let r: GitHubRepo | undefined = repos.get(name);
+							if (r === undefined) {
+								return;
+							} else {
+								repo = r;
+							}
+
+							// Find the code-workspace file for the repo.
+							// If it doesn't exist try and create a new one by cloning the project
+							// Otherwise just open the exising one
+							let path: string = '/home/olijohns/ws/' + repo.name + '.code-workspace';
+							fs.access(path, fs.constants.F_OK, (err: any) => {
+								if (err) {
+									getLocalProject(repo);
+								} else {
+									vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(path), false);
+								}
+							});
+						}
+					);
+				});
+			}
+		);
+		req.on('error', (e) => {
+			console.error(e);
+		});
+		req.end();
+	});
+	context.subscriptions.push(disposable);
+}
+
+// this method is called when your extension is deactivated
+export function deactivate() { }
