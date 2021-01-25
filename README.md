@@ -37,6 +37,7 @@ This extension contributes the following settings:
 
 ### 0.0.0
 
+New Issues:
 * Limited to public repositories
 * Reduced set of color codes
 * No SSH error handling for git commands
@@ -45,8 +46,21 @@ This extension contributes the following settings:
 * File and repository locations not configurable
 * No error handling for github API connection
 
+### 0.0.1
+
+Fixed Issues from previous version:
+* Private GitHub repos now supported
+* Full set of NFL color codes included
+
+New Issues:
+
 ## Release Notes
 
 ### 0.0.0
 
 Initial release of vscode-projects
+
+### 0.0.1
+
+Extended functionality for private GitHub repos and extended set of color
+codes now covering all 32 NFL teams.
