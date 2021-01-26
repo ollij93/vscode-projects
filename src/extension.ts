@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 
 interface GitHubRepo {
 	name: string;
+	// eslint-disable-next-line @typescript-eslint/naming-convention
 	ssh_url: string; // SSH URL
 }
 
@@ -22,7 +23,7 @@ interface ColorCode {
 }
 
 // @@@ - Make this a configurable location
-const ROOT: string = '/home/olijohns/'
+const ROOT: string = '/home/olijohns/';
 // @@@ - Put this elsewhere
 let COLOR_CODES: Map<string, ColorCode> = new Map();
 COLOR_CODES.set("Arizona Cardinals", {
@@ -281,16 +282,16 @@ function cloneProject(repo: GitHubRepo): string | null {
 
 function getLocalProject(repo: GitHubRepo) {
 	// Check for obvious local checkouts
-	let local_checkout: string | null = null;
+	let localCheckout: string | null = null;
 	fs.readdirSync(ROOT, { withFileTypes: true })
 		.filter((x: fs.Dirent) => x.isDirectory())
 		.filter((x: fs.Dirent) => !x.name.startsWith("."))
 		.forEach((dir: fs.Dirent) => {
 			try {
-				let config = fs.readFileSync(ROOT + dir.name + '/.git/config', 'utf8');
+				let config = fs.readFileSync([ROOT, dir.name, '.git', 'config'].join(), 'utf8');
 				if (config.indexOf(repo.ssh_url) >= 0) {
 					// This is a copy of that repo
-					local_checkout = ROOT + dir.name;
+					localCheckout = ROOT + dir.name;
 				}
 			} catch (error) {
 				// Ignore... The file simply doesn't exist. That's expected.
@@ -299,11 +300,11 @@ function getLocalProject(repo: GitHubRepo) {
 		);
 
 	// Couldn't see a local checkout of the repo. So will clone a new one.
-	if (local_checkout === null) {
-		local_checkout = cloneProject(repo);
+	if (localCheckout === null) {
+		localCheckout = cloneProject(repo);
 	}
 
-	if (local_checkout === null) {
+	if (localCheckout === null) {
 		vscode.window.showErrorMessage("Failed to establish local instance of the project");
 		return;
 	}
@@ -326,11 +327,11 @@ function getLocalProject(repo: GitHubRepo) {
 			}
 
 			// Create and then open the .code-workspace file
-			let code_ws_file = ROOT + 'ws/' + repo.name + '.code-workspace';
-			let code_ws_content: { [key: string]: any } = {
+			let codeWsFile: string = [os.homedir(), 'ws', repo.name + '.code-workspace'].join(path.sep);
+			let codeWsContent: { [key: string]: any } = {
 				"folders": [
 					{
-						"path": local_checkout
+						"path": localCheckout
 					},
 				],
 				"settings": {
@@ -344,11 +345,11 @@ function getLocalProject(repo: GitHubRepo) {
 					}
 				}
 			};
-			fs.writeFile(code_ws_file, JSON.stringify(code_ws_content),
+			fs.writeFile(codeWsFile, JSON.stringify(codeWsContent),
 				() => {
 					vscode.commands.executeCommand(
 						"vscode.openFolder",
-						vscode.Uri.file(code_ws_file),
+						vscode.Uri.file(codeWsFile),
 						false
 					);
 				}
@@ -377,7 +378,8 @@ export function activate(context: vscode.ExtensionContext) {
 				port: 443,
 				headers: {
 					authorization: 'Basic ' + auth,
-					'User-Agent': 'other'
+					// eslint-disable-next-line @typescript-eslint/naming-convention
+					"User-Agent": 'other'
 				}
 			},
 			(res: http.IncomingMessage) => {
@@ -411,12 +413,12 @@ export function activate(context: vscode.ExtensionContext) {
 							// Find the code-workspace file for the repo.
 							// If it doesn't exist try and create a new one by cloning the project
 							// Otherwise just open the exising one
-							let path: string = '/home/olijohns/ws/' + repo.name + '.code-workspace';
-							fs.access(path, fs.constants.F_OK, (err: any) => {
+							let codeWsPath: string = [ROOT, 'ws', repo.name + '.code-workspace'].join(path.sep);
+							fs.access(codeWsPath, fs.constants.F_OK, (err: any) => {
 								if (err) {
 									getLocalProject(repo);
 								} else {
-									vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(path), false);
+									vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(codeWsPath), false);
 								}
 							});
 						}
