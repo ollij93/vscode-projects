@@ -53,6 +53,15 @@ Fixed Issues from previous version:
 * Full set of NFL color codes included
 
 New Issues:
+* GitHub key requires setup with no instructions
+
+### 0.0.2
+
+Fixes Issues from previous version:
+* Username now uses running user
+* File and repository location are now configurable
+
+New Issues:
 
 ## Release Notes
 
@@ -64,3 +73,8 @@ Initial release of vscode-projects
 
 Extended functionality for private GitHub repos and extended set of color
 codes now covering all 32 NFL teams.
+
+### 0.0.2
+
+Add configuration for locations to create project directories and
+code-workspace files.
