@@ -1,6 +1,6 @@
 {
 	"name": "vscode-projects",
-	"displayName": "VSCode Projects",
+	"displayName": "Ollij93 VSCode Projects",
 	"description": "VSCode git projects management utility",
 	"publisher": "ollij93",
 	"repository": "https://github.com/ollij93/vscode-projects.git",
@@ -21,7 +21,22 @@
 				"command": "vscode-projects.selectproject",
 				"title": "Ollij93: Select Project"
 			}
-		]
+		],
+		"configuration": {
+			"title": "Ollij93 VSCode Projects",
+			"properties": {
+				"vscode-projects.workspaceFilesLocation": {
+					"type": "string",
+					"default": "",
+					"description": "Specifies the folder path containing the *.code-workspace files for projects. Defaults to $HOME/ws/ if not set."
+				},
+				"vscode-projects.projectsRootLocation": {
+					"type": "string",
+					"default": "",
+					"description": "Specifies the location to clone git repos into (<path>/<reponame>). Defaults to $HOME if not set."
+				}
+			}
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",

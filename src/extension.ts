@@ -22,8 +22,6 @@ interface ColorCode {
 	inactiveForeground: string,
 }
 
-// @@@ - Make this a configurable location
-const ROOT: string = '/home/olijohns/';
 // @@@ - Put this elsewhere
 let COLOR_CODES: Map<string, ColorCode> = new Map();
 COLOR_CODES.set("Arizona Cardinals", {
@@ -251,6 +249,30 @@ COLOR_CODES.set("Washington Football Team", {
 	inactiveForeground: "#773141",
 });
 
+function getRootLocation(): string {
+	let config = vscode.workspace.getConfiguration('vscode-projects');
+	let r: string | undefined = config.get('projectsRootLocation');
+	let root: string;
+	if (r === undefined || r === "") {
+		root = os.homedir();
+	} else {
+		root = r;
+	}
+	return root;
+}
+
+function getWSLocation(): string {
+	let config = vscode.workspace.getConfiguration('vscode-projects');
+	console.log(config);
+	let d: string | undefined = config.get('workspaceFilesLocation');
+	let dir: string;
+	if (d === undefined || d === "") {
+		dir = os.homedir + path.sep + 'ws';
+	} else {
+		dir = d;
+	}
+	return dir;
+}
 
 function getGitHubToken(): string {
 	// @@@ - TODO: Error handling
@@ -268,7 +290,7 @@ function getGitHubToken(): string {
 
 
 function cloneProject(repo: GitHubRepo): string | null {
-	let checkout: string | null = ROOT + repo.name;
+	let checkout: string | null = [getRootLocation(), repo.name].join(path.sep);
 
 	// @@@ - TODO: Handle ssh issues
 	try {
@@ -283,15 +305,15 @@ function cloneProject(repo: GitHubRepo): string | null {
 function getLocalProject(repo: GitHubRepo) {
 	// Check for obvious local checkouts
 	let localCheckout: string | null = null;
-	fs.readdirSync(ROOT, { withFileTypes: true })
+	fs.readdirSync(getRootLocation(), { withFileTypes: true })
 		.filter((x: fs.Dirent) => x.isDirectory())
 		.filter((x: fs.Dirent) => !x.name.startsWith("."))
 		.forEach((dir: fs.Dirent) => {
 			try {
-				let config = fs.readFileSync([ROOT, dir.name, '.git', 'config'].join(), 'utf8');
+				let config = fs.readFileSync([getRootLocation(), dir.name, '.git', 'config'].join(), 'utf8');
 				if (config.indexOf(repo.ssh_url) >= 0) {
 					// This is a copy of that repo
-					localCheckout = ROOT + dir.name;
+					localCheckout = getRootLocation() + dir.name;
 				}
 			} catch (error) {
 				// Ignore... The file simply doesn't exist. That's expected.
@@ -327,7 +349,7 @@ function getLocalProject(repo: GitHubRepo) {
 			}
 
 			// Create and then open the .code-workspace file
-			let codeWsFile: string = [os.homedir(), 'ws', repo.name + '.code-workspace'].join(path.sep);
+			let codeWsFile: string = [getWSLocation(), repo.name + '.code-workspace'].join(path.sep);
 			let codeWsContent: { [key: string]: any } = {
 				"folders": [
 					{
@@ -345,6 +367,9 @@ function getLocalProject(repo: GitHubRepo) {
 					}
 				}
 			};
+			if (!fs.existsSync(getWSLocation())) {
+				fs.mkdirSync(getWSLocation());
+			}
 			fs.writeFile(codeWsFile, JSON.stringify(codeWsContent),
 				() => {
 					vscode.commands.executeCommand(
@@ -365,9 +390,8 @@ export function activate(context: vscode.ExtensionContext) {
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
 	let disposable = vscode.commands.registerCommand('vscode-projects.selectproject', () => {
-		// @@@ - TODO: Use a configured username
 		// @@@ - TODO: Handle case where git isn't available - use local checkouts
-		let user: string = 'olijohns';
+		let user: string = os.userInfo().username;
 		let pass: string = getGitHubToken();
 		let auth: string = Buffer.from(user + ':' + pass).toString('base64');
 		let req = https.request(
@@ -413,7 +437,7 @@ export function activate(context: vscode.ExtensionContext) {
 							// Find the code-workspace file for the repo.
 							// If it doesn't exist try and create a new one by cloning the project
 							// Otherwise just open the exising one
-							let codeWsPath: string = [ROOT, 'ws', repo.name + '.code-workspace'].join(path.sep);
+							let codeWsPath: string = [getWSLocation(), repo.name + '.code-workspace'].join(path.sep);
 							fs.access(codeWsPath, fs.constants.F_OK, (err: any) => {
 								if (err) {
 									getLocalProject(repo);
