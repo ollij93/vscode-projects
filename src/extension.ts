@@ -7,6 +7,7 @@ import * as https from 'https';
 import * as path from 'path';
 import * as os from 'os';
 import * as vscode from 'vscode';
+import { callbackify } from 'util';
 
 interface GitHubRepo {
 	name: string;
@@ -263,7 +264,6 @@ function getRootLocation(): string {
 
 function getWSLocation(): string {
 	let config = vscode.workspace.getConfiguration('vscode-projects');
-	console.log(config);
 	let d: string | undefined = config.get('workspaceFilesLocation');
 	let dir: string;
 	if (d === undefined || d === "") {
@@ -274,14 +274,14 @@ function getWSLocation(): string {
 	return dir;
 }
 
-function getGitHubToken(): string {
+function getGitHubToken(host: string): string {
 	// @@@ - TODO: Error handling
 	try {
 		return JSON.parse(
 			fs.readFileSync(
-				os.homedir() + path.sep + '.githubkeys'
+				os.homedir() + path.sep + '.ollij93.githubkeys'
 			).toString()
-		)['ollij93.vscode-projects'];
+		)[host];
 	} catch (error) {
 		console.error(error);
 		return "";
@@ -300,6 +300,13 @@ function cloneProject(repo: GitHubRepo): string | null {
 	}
 
 	return checkout;
+}
+
+function openInThisWindow(filePath: string) {
+	vscode.commands.executeCommand(
+		"vscode.openFolder",
+		vscode.Uri.file(filePath),
+		false);
 }
 
 function getLocalProject(repo: GitHubRepo) {
@@ -371,16 +378,101 @@ function getLocalProject(repo: GitHubRepo) {
 				fs.mkdirSync(getWSLocation());
 			}
 			fs.writeFile(codeWsFile, JSON.stringify(codeWsContent),
-				() => {
-					vscode.commands.executeCommand(
-						"vscode.openFolder",
-						vscode.Uri.file(codeWsFile),
-						false
-					);
-				}
+				() => { openInThisWindow(codeWsFile); }
 			);
 		}
 	);
+}
+
+function quickPickFromMap<T>(map: Map<string, T>, callback: (picked: T) => void, sort = true) {
+	let keys: Array<string> = Array.from(map.keys());
+	if (sort) {
+		keys = keys.sort();
+	}
+	vscode.window.showQuickPick(keys).then(
+		(choice: string | undefined) => {
+			// Ignore undefined
+			if (choice === undefined) { return; }
+
+			let c: T | undefined = map.get(choice);
+			let pick: T;
+			if (c === undefined) {
+				return;
+			} else {
+				pick = c;
+			}
+
+			callback(pick);
+		}
+	);
+}
+
+function getGitHubRepos(host: string): Promise<string> {
+	return new Promise((resolve, reject) => {
+		// @@@ - TODO: Handle case where git isn't available - use local checkouts
+		let user: string = os.userInfo().username;
+		let pass: string = getGitHubToken(host);
+		let auth: string = Buffer.from(user + ':' + pass).toString('base64');
+		let hostParts: Array<string> = host.split('/');
+		host = hostParts[0];
+		hostParts.shift();
+		let hostUrlPath: string = hostParts.join('/');
+		if (hostUrlPath !== "") {
+			hostUrlPath = '/' + hostUrlPath;
+		}
+		let options = {
+			method: 'GET',
+			hostname: host,
+			path: hostUrlPath + '/user/repos?visibility=all',
+			port: 443,
+			headers: {
+				authorization: 'token ' + pass,
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				"User-Agent": 'other'
+			}
+		};
+		let req = https.request(
+			options,
+			(res: http.IncomingMessage) => {
+				let content: string = "";
+				res.on('data', function (chunk) {
+					content += chunk.toString();
+				});
+				res.on('end', () => { resolve(content); });
+			}
+		);
+		req.on('error', (e) => {
+			console.error(e);
+			reject(e);
+		});
+		req.end();
+	});
+}
+
+function selectProject() {
+	getGitHubRepos('api.github.com').then((content: string) => {
+		// Parse the repository JSON and convert into a Map for later use.
+		let reposArray: Array<GitHubRepo> = JSON.parse(content);
+		let repos: Map<string, GitHubRepo> = new Map();
+		reposArray.forEach((repo: GitHubRepo) => {
+			repos.set(repo.name, repo);
+		});
+
+		// Display a QuickPick for the user to choose the project
+		quickPickFromMap(repos, (repo) => {
+			// Find the code-workspace file for the repo.
+			// If it doesn't exist try and create a new one by cloning the project
+			// Otherwise just open the exising one
+			let codeWsPath: string = [getWSLocation(), repo.name + '.code-workspace'].join(path.sep);
+			fs.access(codeWsPath, fs.constants.F_OK, (err: any) => {
+				if (err) {
+					getLocalProject(repo);
+				} else {
+					openInThisWindow(codeWsPath);
+				}
+			});
+		});
+	});
 }
 
 // this method is called when your extension is activated
@@ -389,72 +481,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('vscode-projects.selectproject', () => {
-		// @@@ - TODO: Handle case where git isn't available - use local checkouts
-		let user: string = os.userInfo().username;
-		let pass: string = getGitHubToken();
-		let auth: string = Buffer.from(user + ':' + pass).toString('base64');
-		let req = https.request(
-			{
-				method: 'GET',
-				hostname: 'api.github.com',
-				path: '/user/repos?visibility=all',
-				port: 443,
-				headers: {
-					authorization: 'Basic ' + auth,
-					// eslint-disable-next-line @typescript-eslint/naming-convention
-					"User-Agent": 'other'
-				}
-			},
-			(res: http.IncomingMessage) => {
-				let content: string = "";
-				res.on('data', function (chunk) {
-					content += chunk.toString();
-				});
-				res.on('end', () => {
-					// Parse the repository JSON and convert into a Map for later use.
-					let reposArray: Array<GitHubRepo> = JSON.parse(content);
-					let repos: Map<string, GitHubRepo> = new Map();
-					reposArray.forEach((repo: GitHubRepo) => {
-						repos.set(repo.name, repo);
-					});
-
-					// Display a QuickPick for the user to choose the project
-					vscode.window.showQuickPick(Array.from(repos.keys()).sort()).then(
-						(name: string | undefined) => {
-							// Project selected (if name not undefined)
-							if (name === undefined) { return; }
-
-							// Select the right GitHubRepo from the Map
-							let repo: GitHubRepo;
-							let r: GitHubRepo | undefined = repos.get(name);
-							if (r === undefined) {
-								return;
-							} else {
-								repo = r;
-							}
-
-							// Find the code-workspace file for the repo.
-							// If it doesn't exist try and create a new one by cloning the project
-							// Otherwise just open the exising one
-							let codeWsPath: string = [getWSLocation(), repo.name + '.code-workspace'].join(path.sep);
-							fs.access(codeWsPath, fs.constants.F_OK, (err: any) => {
-								if (err) {
-									getLocalProject(repo);
-								} else {
-									vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(codeWsPath), false);
-								}
-							});
-						}
-					);
-				});
-			}
-		);
-		req.on('error', (e) => {
-			console.error(e);
-		});
-		req.end();
-	});
+	let disposable = vscode.commands.registerCommand('vscode-projects.selectproject', selectProject);
 	context.subscriptions.push(disposable);
 }
 
