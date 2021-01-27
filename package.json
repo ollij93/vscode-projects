@@ -4,7 +4,7 @@
 	"description": "VSCode git projects management utility",
 	"publisher": "ollij93",
 	"repository": "https://github.com/ollij93/vscode-projects.git",
-	"version": "0.0.2",
+	"version": "0.1.0",
 	"engines": {
 		"vscode": "^1.52.0"
 	},
@@ -34,6 +34,11 @@
 					"type": "string",
 					"default": "",
 					"description": "Specifies the location to clone git repos into (<path>/<reponame>). Defaults to $HOME if not set."
+				},
+				"vscode-projects.githubServerAPIs": {
+					"type": "array",
+					"default": ["api.github.com"],
+					"description": "Specifies the set of github server APIs to search for projects."
 				}
 			}
 		}

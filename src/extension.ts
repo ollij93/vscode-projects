@@ -12,7 +12,13 @@ import { callbackify } from 'util';
 interface GitHubRepo {
 	name: string;
 	// eslint-disable-next-line @typescript-eslint/naming-convention
-	ssh_url: string; // SSH URL
+	full_name: string;
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	ssh_url: string;
+	owner: {
+		login: string;
+		type: string;
+	}
 }
 
 interface ColorCode {
@@ -274,6 +280,11 @@ function getWSLocation(): string {
 	return dir;
 }
 
+function getGitHubAPIs(): Array<string> {
+	let config = vscode.workspace.getConfiguration('vscode-projects');
+	return config.get('githubServerAPIs') || [];
+}
+
 function getGitHubToken(host: string): string {
 	// @@@ - TODO: Error handling
 	try {
@@ -294,6 +305,7 @@ function cloneProject(repo: GitHubRepo): string | null {
 
 	// @@@ - TODO: Handle ssh issues
 	try {
+		vscode.window.showInformationMessage("Cloning " + repo.ssh_url + ' to ' + checkout + ' ...');
 		cp.execSync('git clone ' + repo.ssh_url + ' ' + checkout);
 	} catch (error) {
 		// @@@
@@ -312,6 +324,7 @@ function openInThisWindow(filePath: string) {
 function getLocalProject(repo: GitHubRepo) {
 	// Check for obvious local checkouts
 	let localCheckout: string | null = null;
+	console.log("Checking for local checkout...");
 	fs.readdirSync(getRootLocation(), { withFileTypes: true })
 		.filter((x: fs.Dirent) => x.isDirectory())
 		.filter((x: fs.Dirent) => !x.name.startsWith("."))
@@ -325,16 +338,17 @@ function getLocalProject(repo: GitHubRepo) {
 			} catch (error) {
 				// Ignore... The file simply doesn't exist. That's expected.
 			}
-		}
-		);
+		});
 
 	// Couldn't see a local checkout of the repo. So will clone a new one.
 	if (localCheckout === null) {
+		console.log("None found, cloning...")
 		localCheckout = cloneProject(repo);
 	}
 
 	if (localCheckout === null) {
 		vscode.window.showErrorMessage("Failed to establish local instance of the project");
+		console.error("Failed to get a local copy of the repo.");
 		return;
 	}
 
@@ -407,7 +421,7 @@ function quickPickFromMap<T>(map: Map<string, T>, callback: (picked: T) => void,
 	);
 }
 
-function getGitHubRepos(host: string): Promise<string> {
+function getGitHubRepos(host: string, append: Array<GitHubRepo> = []): Promise<Array<GitHubRepo>> {
 	return new Promise((resolve, reject) => {
 		// @@@ - TODO: Handle case where git isn't available - use local checkouts
 		let user: string = os.userInfo().username;
@@ -438,7 +452,11 @@ function getGitHubRepos(host: string): Promise<string> {
 				res.on('data', function (chunk) {
 					content += chunk.toString();
 				});
-				res.on('end', () => { resolve(content); });
+				res.on('end', () => {
+					// Parse the repository JSON and convert into a Map for later use.
+					let reposArray: Array<GitHubRepo> = JSON.parse(content);
+					resolve(append.concat(reposArray));
+				});
 			}
 		);
 		req.on('error', (e) => {
@@ -450,12 +468,19 @@ function getGitHubRepos(host: string): Promise<string> {
 }
 
 function selectProject() {
-	getGitHubRepos('api.github.com').then((content: string) => {
-		// Parse the repository JSON and convert into a Map for later use.
-		let reposArray: Array<GitHubRepo> = JSON.parse(content);
+	let promise: Promise<Array<GitHubRepo>> = new Promise((resolve, _) => { resolve([]); });
+
+	// @@@ - TODO: Handle case of one of these failing
+	getGitHubAPIs().forEach((host: string) => {
+		promise = promise.then((current: Array<GitHubRepo>) => {
+			return getGitHubRepos(host, current);
+		});
+	});
+
+	promise.then((reposArray: Array<GitHubRepo>) => {
 		let repos: Map<string, GitHubRepo> = new Map();
 		reposArray.forEach((repo: GitHubRepo) => {
-			repos.set(repo.name, repo);
+			repos.set(repo.full_name, repo);
 		});
 
 		// Display a QuickPick for the user to choose the project

@@ -63,6 +63,11 @@ Fixes Issues from previous version:
 
 New Issues:
 
+### 0.1.0
+
+New Issues:
+* Failure to contact one GitHub API results in no projects being accessible
+
 ## Release Notes
 
 ### 0.0.0
@@ -78,3 +83,9 @@ codes now covering all 32 NFL teams.
 
 Add configuration for locations to create project directories and
 code-workspace files.
+
+### 0.1.0
+
+Add the capability to configure multiple github server APIs.
+Display the full repository name when selecting project to split them by
+the owner.

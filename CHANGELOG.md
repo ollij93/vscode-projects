@@ -15,3 +15,8 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 
 - Use configuration for file and repository locations
 - Use the username of the OS user when contacting github
+
+## 0.1.0
+
+- Support multiple configured github server APIs
+- Display full repository name to separate repositories by owner
