@@ -20,6 +20,10 @@
 			{
 				"command": "vscode-projects.selectproject",
 				"title": "Ollij93: Select Project"
+			},
+			{
+				"command": "vscode-projects.newproject",
+				"title": "Ollij93: New Project"
 			}
 		],
 		"configuration": {

@@ -34,14 +34,14 @@ function getRootLocations(): string[] {
  */
 function getRootLocation(): Promise<string> {
     let choices: string[] = getRootLocations();
-	// If there's only one choice don't prompt for the users input
+    // If there's only one choice don't prompt for the users input
     if (choices.length === 1) {
         return new Promise((resolve, _) => {
             return resolve(choices[0]);
         });
     }
 
-	// Create a promise from the quick pick
+    // Create a promise from the quick pick
     return new Promise((resolve, reject) => {
         vscode.window.showQuickPick(choices).then((val) => {
             if (val === undefined) {
@@ -230,6 +230,10 @@ function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
     }
 }
 
+// ============================================================================
+// Commands
+// ============================================================================
+
 /**
  * Command that runs for the Select Project action.
  *
@@ -260,6 +264,14 @@ function selectProject() {
     });
 }
 
+function newProject() {
+    let promise = github.createRepo(github.getAPIs()[0], "TEST_REPO");
+
+    promise.then(obtainCodeWorkspace);
+}
+
+// ============================================================================
+
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -269,6 +281,12 @@ export function activate(context: vscode.ExtensionContext) {
     let disposable = vscode.commands.registerCommand(
         "vscode-projects.selectproject",
         selectProject
+    );
+    context.subscriptions.push(disposable);
+
+    disposable = vscode.commands.registerCommand(
+        "vscode-projects.newproject",
+        newProject
     );
     context.subscriptions.push(disposable);
 }
