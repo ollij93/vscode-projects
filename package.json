@@ -31,8 +31,8 @@
 					"description": "Specifies the folder path containing the *.code-workspace files for projects. Defaults to $HOME/ws/ if not set."
 				},
 				"vscode-projects.projectsRootLocation": {
-					"type": "string",
-					"default": "",
+					"type": "array",
+					"default": [],
 					"description": "Specifies the location to clone git repos into (<path>/<reponame>). Defaults to $HOME if not set."
 				},
 				"vscode-projects.githubServerAPIs": {

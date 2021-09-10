@@ -8,18 +8,58 @@ import { showColorQuickPick, ColorCode } from "./color";
 import { github } from "./github";
 import * as utils from "./utils";
 
-function getRootLocation(): string {
+/**
+ * Get the configured root location for project repositories.
+ *
+ * Defaults to the users home directory if not configured.
+ *
+ * @returns The configured root location as a string.
+ */
+function getRootLocations(): string[] {
     let config = vscode.workspace.getConfiguration("vscode-projects");
-    let r: string | undefined = config.get("projectsRootLocation");
-    let root: string;
-    if (r === undefined || r === "") {
-        root = os.homedir();
+    let r: string[] | undefined = config.get("projectsRootLocation");
+    let root: string[];
+    if (r === undefined || r === []) {
+        root = [os.homedir()];
     } else {
         root = r;
     }
     return root;
 }
 
+/**
+ * Have the user select the root location from the output of getRootLocations.
+ *
+ * @returns A promise that resolves with the selected item.
+ */
+function getRootLocation(): Promise<string> {
+    let choices: string[] = getRootLocations();
+	// If there's only one choice don't prompt for the users input
+    if (choices.length === 1) {
+        return new Promise((resolve, _) => {
+            return resolve(choices[0]);
+        });
+    }
+
+	// Create a promise from the quick pick
+    return new Promise((resolve, reject) => {
+        vscode.window.showQuickPick(choices).then((val) => {
+            if (val === undefined) {
+                reject();
+            } else {
+                resolve(val);
+            }
+        });
+    });
+}
+
+/**
+ * Get the configured location for code-workspace files.
+ *
+ * Defaults to a directory "~/ws/"
+ *
+ * @returns The configured location for core workspace files.
+ */
 function getWSLocation(): string {
     let config = vscode.workspace.getConfiguration("vscode-projects");
     let d: string | undefined = config.get("workspaceFilesLocation");
@@ -32,10 +72,21 @@ function getWSLocation(): string {
     return dir;
 }
 
+/**
+ * Get the code workspace file path for the given repo.
+ *
+ * @param repo The repo to get the code workspace file path for.
+ * @returns The code workspace file path as a string.
+ */
 function getCodeWorkspacePath(repo: github.Repo): string {
     return [getWSLocation(), repo.name + ".code-workspace"].join(path.sep);
 }
 
+/**
+ * Utility method to open the given path in the current VSCode window.
+ *
+ * @param filePath The file path to be opened in the current window.
+ */
 function openInThisWindow(filePath: string) {
     vscode.commands.executeCommand(
         "vscode.openFolder",
@@ -44,6 +95,13 @@ function openInThisWindow(filePath: string) {
     );
 }
 
+/**
+ * Find a local checkout for the provided repo if one exists.
+ *
+ * @param root The location to search for existing repositories.
+ * @param repo The github repo to locate a checkout for.
+ * @returns The path to the local checkout, or null if none is found.
+ */
 function findLocalCheckout(root: string, repo: github.Repo): string | null {
     console.log("Checking for local checkout of " + repo.full_name + " ...");
 
@@ -71,25 +129,49 @@ function findLocalCheckout(root: string, repo: github.Repo): string | null {
     return ret;
 }
 
+/**
+ * Find an existing, or clone a new workspace for the given repo.
+ *
+ * @param repo The github repo to get a local workspace for.
+ * @returns A promise that resolves with the path to the local workspace.
+ */
 function obtainLocalWorkspace(repo: github.Repo): Promise<string> {
-    let projectsRoot = getRootLocation();
+    let projectsRoots = getRootLocations();
 
-    let localCheckout: string | null = findLocalCheckout(projectsRoot, repo);
+    let checkout: string | null = null;
+    projectsRoots.every((root) => {
+        checkout = findLocalCheckout(root, repo);
 
-    if (localCheckout === null) {
+        if (checkout !== null) {
+            return false;
+        }
+    });
+
+    if (checkout === null) {
         console.log(
             "No local checkout of " + repo.full_name + " found, cloning..."
         );
-        return github.clone(repo, projectsRoot);
+        return getRootLocation().then((root) => {
+            return github.clone(repo, root);
+        });
     } else {
-        let checkout: string = localCheckout;
-        console.log(`Found local checkout of ${repo.full_name} at ${checkout}`);
+        let c: string = checkout;
+        console.log(`Found local checkout of ${repo.full_name} at ${c}`);
         return new Promise((resolve, _) => {
-            resolve(checkout);
+            resolve(c);
         });
     }
 }
 
+/**
+ * Create a code workspace file for the provided repo which is available at
+ * the given workspace location.
+ *
+ * @param workspace The path to a local checkout of the repo.
+ * @param repo The github repo to create the code workspace file for.
+ * @returns A promise that resolves with the path to the created code
+ * workspace file.
+ */
 function createCodeWorkspace(
     workspace: string,
     repo: github.Repo
@@ -105,9 +187,8 @@ function createCodeWorkspace(
             ],
             settings: {
                 "window.title":
-                    "[" +
-                    repo.name +
-                    "] ${dirty} ${activeEditorMedium}${separator}${rootName}",
+                    `[${repo.name}]` +
+                    " ${dirty} ${activeEditorMedium}${separator}${rootName}",
                 "workbench.colorCustomizations": {
                     "titleBar.activeBackground": color.activeBackground,
                     "titleBar.activeForeground": color.activeForeground,
@@ -125,6 +206,12 @@ function createCodeWorkspace(
     });
 }
 
+/**
+ * Find an existing, or create a new code workspace file for the given repo.
+ *
+ * @param repo The github repo to get a code workspace file path for.
+ * @returns A promise that resolves with the path to the code workspace file.
+ */
 function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
     // Find the code-workspace file for the repo.
     // If it doesn't exist try and create a new one by cloning the project
@@ -143,6 +230,11 @@ function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
     }
 }
 
+/**
+ * Command that runs for the Select Project action.
+ *
+ * Has the user select a repo and then opens that repos code workspace file.
+ */
 function selectProject() {
     let promise: Promise<Array<github.Repo>> = new Promise((resolve, _) => {
         resolve([]);
