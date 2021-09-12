@@ -240,28 +240,23 @@ function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
  * Has the user select a repo and then opens that repos code workspace file.
  */
 function selectProject() {
-    let promise: Promise<Array<github.Repo>> = new Promise((resolve, _) => {
-        resolve([]);
-    });
+    Promise.all(github.getAPIs().map(github.getRepos)).then(
+        (apiRepos: Array<Array<github.Repo>>) => {
+            let repos: Array<github.Repo> =
+                Array.prototype.concat.apply(apiRepos);
 
-    // @@@ - TODO: Handle case of one of these failing
-    github.getAPIs().forEach((host: string) => {
-        promise = promise.then((current: Array<github.Repo>) => {
-            return github.getRepos(host, current);
-        });
-    });
+            let reposMap: Map<string, github.Repo> = new Map();
 
-    promise.then((reposArray: Array<github.Repo>) => {
-        let repos: Map<string, github.Repo> = new Map();
-        reposArray.forEach((repo: github.Repo) => {
-            repos.set(repo.full_name, repo);
-        });
+            repos.forEach((repo: github.Repo) => {
+                reposMap.set(repo.full_name, repo);
+            });
 
-        // Display a QuickPick for the user to choose the project
-        utils.quickPickFromMap(repos, (repo) => {
-            return obtainCodeWorkspace(repo).then(openInThisWindow);
-        });
-    });
+            // Display a QuickPick for the user to choose the project
+            utils.quickPickFromMap(reposMap, (repo) => {
+                return obtainCodeWorkspace(repo).then(openInThisWindow);
+            });
+        }
+    );
 }
 
 function newProject() {

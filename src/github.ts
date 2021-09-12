@@ -117,7 +117,6 @@ export module github {
 
     export function getRepos(
         host: string,
-        append: Array<Repo> = []
     ): Promise<Array<Repo>> {
         return makeApiRequest(
             host,
@@ -125,7 +124,7 @@ export module github {
             (resolve, reject, content) => {
                 // Parse the repository JSON and convert into a Map for later use.
                 let reposArray: Array<Repo> = JSON.parse(content);
-                resolve(append.concat(reposArray));
+                resolve(reposArray);
             }
         );
     }
