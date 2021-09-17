@@ -20,3 +20,9 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 
 - Support multiple configured github server APIs
 - Display full repository name to separate repositories by owner
+
+## 0.2.0
+
+- Add the "new project" command
+- Add support for multiple root locations for cloning repositories
+- Improve code structure and documentation

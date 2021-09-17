@@ -68,6 +68,10 @@ New Issues:
 New Issues:
 * Failure to contact one GitHub API results in no projects being accessible
 
+### 0.2.0
+
+New Issues:
+
 ## Release Notes
 
 ### 0.0.0
@@ -89,3 +93,8 @@ code-workspace files.
 Add the capability to configure multiple github server APIs.
 Display the full repository name when selecting project to split them by
 the owner.
+
+### 0.2.0
+
+Add the "new project" command.
+Add support for multiple root locations for cloning repositories.
