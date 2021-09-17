@@ -71,3 +71,7 @@ the owner.
 
 Add the "new project" command.
 Add support for multiple root locations for cloning repositories.
+
+### 0.2.1
+
+Fix github API error handling.

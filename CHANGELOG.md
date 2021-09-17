@@ -26,3 +26,7 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 - Add the "new project" command
 - Add support for multiple root locations for cloning repositories
 - Improve code structure and documentation
+
+## 0.2.1
+
+- Fix handling when one configured github server is not available
