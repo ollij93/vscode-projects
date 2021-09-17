@@ -7,6 +7,8 @@ import * as vscode from "vscode";
 import { showColorQuickPick, ColorCode } from "./color";
 import { github } from "./github";
 import * as utils from "./utils";
+import { reporters } from "mocha";
+import { REPL_MODE_STRICT } from "repl";
 
 /**
  * Get the configured root location for project repositories.
@@ -19,11 +21,12 @@ function getRootLocations(): string[] {
     let config = vscode.workspace.getConfiguration("vscode-projects");
     let r: string[] | undefined = config.get("projectsRootLocation");
     let root: string[];
-    if (r === undefined || r === []) {
+    if (r === undefined || r.length === 0) {
         root = [os.homedir()];
     } else {
         root = r;
     }
+    console.log(`Root locations: ${root}`);
     return root;
 }
 
@@ -42,15 +45,7 @@ function getRootLocation(): Promise<string> {
     }
 
     // Create a promise from the quick pick
-    return new Promise((resolve, reject) => {
-        vscode.window.showQuickPick(choices).then((val) => {
-            if (val === undefined) {
-                reject();
-            } else {
-                resolve(val);
-            }
-        });
-    });
+    return utils.showQuickPick(choices);
 }
 
 /**
@@ -221,13 +216,67 @@ function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
     try {
         fs.accessSync(codeWsPath, fs.constants.F_OK);
         return new Promise((resolve, _) => {
+            console.log(`Existing code workspace: ${codeWsPath}`);
             resolve(codeWsPath);
         });
     } catch (error) {
+        console.log(`Will create new code workspace`);
         return obtainLocalWorkspace(repo).then((ws) => {
             return createCodeWorkspace(ws, repo);
         });
     }
+}
+
+/**
+ * Get a map of string name to repo object for all configured github repos.
+ *
+ * @returns A promise that resolves with this map.
+ */
+function getAllReposMap(): Promise<Map<string, github.Repo>> {
+    return Promise.all(github.getAPIs().map(github.getRepos)).then(
+        // Remap from array of arrays of repos to a map
+        (apiRepos: Array<Array<github.Repo>>) => {
+            let map: Map<string, github.Repo> = new Map();
+
+            apiRepos.forEach((repos) => {
+                repos.forEach((repo) => {
+                    map.set(repo.full_name, repo);
+                });
+            });
+
+            return map;
+        }
+    );
+}
+
+/**
+ * Get the users input on where to create a new repo and what to call it.
+ *
+ * @returns A promise that resolves with the host API and the name of the new
+ * repo to be created.
+ */
+function userInputNewRepoOptions(): Promise<[string, string]> {
+    return new Promise((resolve, reject) => {
+        utils.showQuickPick(github.getAPIs()).then((host) => {
+            return github.getRepos(host).then((repos) => {
+                return utils.showInputBox().then((name) => {
+                    name = name.trim();
+                    if (!name) {
+                        // No name given
+                        reject();
+                    } else if (name in repos.map((x) => x.name)) {
+                        // Can't have multiple repos of same name
+                        reject();
+                    } else {
+                        console.log(
+                            `Successfully resolving with ${host} and ${name}`
+                        );
+                        resolve([host, name]);
+                    }
+                });
+            });
+        });
+    });
 }
 
 // ============================================================================
@@ -240,29 +289,25 @@ function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
  * Has the user select a repo and then opens that repos code workspace file.
  */
 function selectProject() {
-    Promise.all(github.getAPIs().map(github.getRepos)).then(
-        (apiRepos: Array<Array<github.Repo>>) => {
-            let repos: Array<github.Repo> =
-                Array.prototype.concat.apply(apiRepos);
-
-            let reposMap: Map<string, github.Repo> = new Map();
-
-            repos.forEach((repo: github.Repo) => {
-                reposMap.set(repo.full_name, repo);
-            });
-
-            // Display a QuickPick for the user to choose the project
-            utils.quickPickFromMap(reposMap, (repo) => {
-                return obtainCodeWorkspace(repo).then(openInThisWindow);
-            });
-        }
-    );
+    getAllReposMap()
+        .then(utils.quickPickFromMap)
+        .then(obtainCodeWorkspace)
+        .then(openInThisWindow);
 }
 
+/**
+ * Command that runs for the New Project action.
+ *
+ * Has the user input options, creates the repo accordingly and then opens
+ * the created repos code workspace file.
+ */
 function newProject() {
-    let promise = github.createRepo(github.getAPIs()[0], "TEST_REPO");
-
-    promise.then(obtainCodeWorkspace);
+    userInputNewRepoOptions()
+        .then((opts) => {
+            return github.createRepo(...opts);
+        })
+        .then(obtainCodeWorkspace)
+        .then(openInThisWindow);
 }
 
 // ============================================================================

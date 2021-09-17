@@ -124,6 +124,7 @@ export module github {
             (resolve, reject, content) => {
                 // Parse the repository JSON and convert into a Map for later use.
                 let reposArray: Array<Repo> = JSON.parse(content);
+                console.log(reposArray);
                 resolve(reposArray);
             }
         );
