@@ -45,8 +45,6 @@ Missing features:
 Problems:
 
 * No SSH error handling for git commands
-* No error handling for github API connection
-* Failure to contact one GitHub API results in no projects being accessible
 
 ## Release Notes
 

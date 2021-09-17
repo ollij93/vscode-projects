@@ -233,15 +233,17 @@ function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
  * @returns A promise that resolves with this map.
  */
 function getAllReposMap(): Promise<Map<string, github.Repo>> {
-    return Promise.all(github.getAPIs().map(github.getRepos)).then(
+    return Promise.allSettled(github.getAPIs().map(github.getRepos)).then(
         // Remap from array of arrays of repos to a map
-        (apiRepos: Array<Array<github.Repo>>) => {
+        (apiRepos: PromiseSettledResult<github.Repo[]>[]) => {
             let map: Map<string, github.Repo> = new Map();
 
-            apiRepos.forEach((repos) => {
-                repos.forEach((repo) => {
-                    map.set(repo.full_name, repo);
-                });
+            apiRepos.forEach((result) => {
+                if (result.status === "fulfilled") {
+                    result.value.forEach((repo) => {
+                        map.set(repo.full_name, repo);
+                    });
+                }
             });
 
             return map;

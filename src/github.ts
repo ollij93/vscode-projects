@@ -50,7 +50,9 @@ export module github {
                 `git clone ${repo.ssh_url} ${checkout}`,
                 (err, _, stderr) => {
                     if (err) {
-                        vscode.window.showErrorMessage("Failed to clone the repo");
+                        vscode.window.showErrorMessage(
+                            "Failed to clone the repo"
+                        );
                         console.error(err);
                         console.error(stderr);
                         reject(err);
@@ -84,7 +86,7 @@ export module github {
             if (hostUrlPath !== "") {
                 hostUrlPath = "/" + hostUrlPath;
             }
-            let options = {
+            let options: https.RequestOptions = {
                 method: method,
                 hostname: host,
                 path: hostUrlPath + path,
@@ -109,15 +111,22 @@ export module github {
             }
             req.on("error", (e) => {
                 console.error(e);
+                vscode.window.showErrorMessage(
+                    `Failed to make API request to ${host}`
+                );
                 reject(e);
+            });
+            req.on("abort", () => {
+                vscode.window.showErrorMessage(
+                    `Failed to make API request to ${host}`
+                );
+                reject();
             });
             req.end();
         });
     }
 
-    export function getRepos(
-        host: string,
-    ): Promise<Array<Repo>> {
+    export function getRepos(host: string): Promise<Array<Repo>> {
         return makeApiRequest(
             host,
             "/user/repos?visibility=all",
