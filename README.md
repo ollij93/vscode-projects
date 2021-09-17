@@ -35,42 +35,18 @@ This extension contributes the following settings:
 
 ## Known Issues
 
-### 0.0.0
+Missing features:
 
-New Issues:
-* Limited to public repositories
-* Reduced set of color codes
-* No SSH error handling for git commands
-* Repository setup (e.g. requirements.txt install) not enabled
-* Username not configurable
-* File and repository locations not configurable
-* No error handling for github API connection
-
-### 0.0.1
-
-Fixed Issues from previous version:
-* Private GitHub repos now supported
-* Full set of NFL color codes included
-
-New Issues:
 * GitHub key requires setup with no instructions
+* No choice of templates for creating new projects
+* Repository setup (e.g. requirements.txt install) not enabled
+* Single command to open URL of the repo not yet available
 
-### 0.0.2
+Problems:
 
-Fixes Issues from previous version:
-* Username now uses running user
-* File and repository location are now configurable
-
-New Issues:
-
-### 0.1.0
-
-New Issues:
+* No SSH error handling for git commands
+* No error handling for github API connection
 * Failure to contact one GitHub API results in no projects being accessible
-
-### 0.2.0
-
-New Issues:
 
 ## Release Notes
 
