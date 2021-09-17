@@ -43,8 +43,7 @@ Missing features:
 * Single command to open URL of the repo not yet available
 
 Problems:
-
-* No SSH error handling for git commands
+*None*
 
 ## Release Notes
 
