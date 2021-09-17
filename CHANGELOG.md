@@ -30,3 +30,7 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 ## 0.2.1
 
 - Fix handling when one configured github server is not available
+
+## 0.2.2
+
+- Added the Open Github Page command

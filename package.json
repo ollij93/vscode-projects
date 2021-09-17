@@ -24,6 +24,10 @@
 			{
 				"command": "vscode-projects.newproject",
 				"title": "Ollij93: New Project"
+			},
+			{
+				"command": "vscode-projects.opengithubpage",
+				"title": "Ollij93: Open GitHub Page"
 			}
 		],
 		"configuration": {

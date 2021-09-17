@@ -1,5 +1,6 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
+import * as cp from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -312,6 +313,20 @@ function newProject() {
         .then(openInThisWindow);
 }
 
+function openGitHubPage() {
+    let folders = vscode.workspace.workspaceFolders;
+    if (folders === undefined) { return; }
+
+    let options: cp.ExecSyncOptionsWithStringEncoding = {
+        encoding: "ascii",
+        cwd: folders[0].uri.fsPath,
+    };
+    let cloneURL = cp.execSync("git remote get-url origin", options).toString();
+    let url = cloneURL.replace(":", "/").replace("git@", "https://").replace(".git", "").trim();
+    console.log(url);
+    vscode.env.openExternal(vscode.Uri.parse(url));
+}
+
 // ============================================================================
 
 // this method is called when your extension is activated
@@ -329,6 +344,12 @@ export function activate(context: vscode.ExtensionContext) {
     disposable = vscode.commands.registerCommand(
         "vscode-projects.newproject",
         newProject
+    );
+    context.subscriptions.push(disposable);
+
+    disposable = vscode.commands.registerCommand(
+        "vscode-projects.opengithubpage",
+        openGitHubPage
     );
     context.subscriptions.push(disposable);
 }

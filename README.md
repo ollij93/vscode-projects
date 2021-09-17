@@ -40,7 +40,6 @@ Missing features:
 * GitHub key requires setup with no instructions
 * No choice of templates for creating new projects
 * Repository setup (e.g. requirements.txt install) not enabled
-* Single command to open URL of the repo not yet available
 
 Problems:
 *None*
@@ -75,3 +74,7 @@ Add support for multiple root locations for cloning repositories.
 ### 0.2.1
 
 Fix github API error handling.
+
+### 0.2.2
+
+Add a command to open the URL of the repo for the current workspace.
