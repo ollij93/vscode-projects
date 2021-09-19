@@ -17,6 +17,8 @@ export module github {
             login: string;
             type: string;
         };
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        is_template: boolean;
     }
 
     export function getAPIs(): Array<string> {
@@ -65,17 +67,12 @@ export module github {
         });
     }
 
-    function makeApiRequest<T>(
+    function makeApiRequest(
         host: string,
         path: string,
-        cb: (
-            resolve: (value: T | PromiseLike<T>) => void,
-            reject: (reason?: any) => void,
-            content: string
-        ) => void,
         method: string = "GET",
         data?: string
-    ): Promise<T> {
+    ): Promise<string> {
         return new Promise((resolve, reject) => {
             // @@@ - TODO: Handle case where git isn't available - use local checkouts
             let pass: string = getToken(host);
@@ -103,7 +100,7 @@ export module github {
                     content += chunk.toString();
                 });
                 res.on("end", () => {
-                    cb(resolve, reject, content);
+                    resolve(content);
                 });
             });
             if (data !== undefined) {
@@ -127,39 +124,45 @@ export module github {
     }
 
     export function getRepos(host: string): Promise<Array<Repo>> {
-        return makeApiRequest(
-            host,
-            "/user/repos?visibility=all",
-            (resolve, reject, content) => {
+        return makeApiRequest(host, "/user/repos?visibility=all").then(
+            (content) => {
                 // Parse the repository JSON and convert into a Map for later use.
                 let reposArray: Array<Repo> = JSON.parse(content);
                 console.log(reposArray);
-                resolve(reposArray);
+                return reposArray;
             }
         );
     }
 
-    export function createRepo(host: string, name: string): Promise<Repo> {
+    export function createRepo(
+        host: string,
+        name: string,
+        templateRepo?: github.Repo
+    ): Promise<Repo> {
+        let requestPath = templateRepo
+            ? `/repost/${templateRepo.full_name}/generate`
+            : "/user/repos";
         return makeApiRequest(
             host,
-            "/user/repos",
-            (resolve, reject, content) => {
-                let repo: Repo = JSON.parse(content);
-                console.log("New repo:");
-                console.log(repo);
-
-                // Check that the message recieved has the expected content.
-                if (repo.ssh_url !== undefined) {
-                    resolve(repo);
-                } else {
-                    reject(repo);
-                }
-            },
+            requestPath,
             "POST",
             JSON.stringify({
                 name: name,
                 private: true,
             })
-        );
+        ).then((content) => {
+            let repo: Repo = JSON.parse(content);
+            console.log("New repo:");
+            console.log(repo);
+
+            // Check that the message recieved has the expected content.
+            if (repo.ssh_url !== undefined) {
+                return repo;
+            } else {
+                return new Promise((_, rej) => {
+                    rej();
+                });
+            }
+        });
     }
 }

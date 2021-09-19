@@ -8,8 +8,6 @@ import * as vscode from "vscode";
 import { showColorQuickPick, ColorCode } from "./color";
 import { github } from "./github";
 import * as utils from "./utils";
-import { reporters } from "mocha";
-import { REPL_MODE_STRICT } from "repl";
 
 /**
  * Get the configured root location for project repositories.
@@ -228,6 +226,16 @@ function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
     }
 }
 
+function mapFromReposArray(repos: github.Repo[]): Map<string, github.Repo> {
+    let ret: Map<string, github.Repo> = new Map();
+
+    repos.forEach((repo) => {
+        ret.set(repo.full_name, repo);
+    });
+
+    return ret;
+}
+
 /**
  * Get a map of string name to repo object for all configured github repos.
  *
@@ -237,19 +245,60 @@ function getAllReposMap(): Promise<Map<string, github.Repo>> {
     return Promise.allSettled(github.getAPIs().map(github.getRepos)).then(
         // Remap from array of arrays of repos to a map
         (apiRepos: PromiseSettledResult<github.Repo[]>[]) => {
-            let map: Map<string, github.Repo> = new Map();
+            let maps: Map<string, github.Repo>[] = [];
 
             apiRepos.forEach((result) => {
                 if (result.status === "fulfilled") {
-                    result.value.forEach((repo) => {
-                        map.set(repo.full_name, repo);
-                    });
+                    maps.push(mapFromReposArray(result.value));
                 }
             });
 
-            return map;
+            let ret: Map<string, github.Repo> = new Map();
+
+            maps.forEach((map) => {
+                [...map.entries()].forEach((val) => {
+                    ret.set(...val);
+                });
+            });
+
+            return ret;
         }
     );
+}
+
+function userInputRepoName(repos: github.Repo[]): Promise<string> {
+    return utils.showInputBox().then((name) => {
+        name = name.trim();
+        if (!name || name in repos.map((x) => x.name)) {
+            // No name given or existing repo
+            return new Promise((_, rej) => {
+                rej();
+            });
+        } else {
+            return new Promise((res, _) => {
+                res(name);
+            });
+        }
+    });
+}
+
+function userSelectTemplate(
+    host: string,
+    repos: github.Repo[],
+    name: string
+): Promise<[string, string, github.Repo?]> {
+    return utils
+        .quickPickFromMap(mapFromReposArray(repos))
+        .then((repo) => {
+            return new Promise<[string, string, github.Repo?]>((res, _) => {
+                res([host, name, repo]);
+            });
+        })
+        .catch((_) => {
+            return new Promise<[string, string, github.Repo?]>((res, _) => {
+                res([host, name, undefined]);
+            });
+        });
 }
 
 /**
@@ -258,25 +307,11 @@ function getAllReposMap(): Promise<Map<string, github.Repo>> {
  * @returns A promise that resolves with the host API and the name of the new
  * repo to be created.
  */
-function userInputNewRepoOptions(): Promise<[string, string]> {
-    return new Promise((resolve, reject) => {
-        utils.showQuickPick(github.getAPIs()).then((host) => {
-            return github.getRepos(host).then((repos) => {
-                return utils.showInputBox().then((name) => {
-                    name = name.trim();
-                    if (!name) {
-                        // No name given
-                        reject();
-                    } else if (name in repos.map((x) => x.name)) {
-                        // Can't have multiple repos of same name
-                        reject();
-                    } else {
-                        console.log(
-                            `Successfully resolving with ${host} and ${name}`
-                        );
-                        resolve([host, name]);
-                    }
-                });
+function userInputNewRepoOptions(): Promise<[string, string, github.Repo?]> {
+    return utils.showQuickPick(github.getAPIs()).then((host) => {
+        return github.getRepos(host).then((repos) => {
+            return userInputRepoName(repos).then((name) => {
+                return userSelectTemplate(host, repos, name);
             });
         });
     });
@@ -315,14 +350,20 @@ function newProject() {
 
 function openGitHubPage() {
     let folders = vscode.workspace.workspaceFolders;
-    if (folders === undefined) { return; }
+    if (folders === undefined) {
+        return;
+    }
 
     let options: cp.ExecSyncOptionsWithStringEncoding = {
         encoding: "ascii",
         cwd: folders[0].uri.fsPath,
     };
     let cloneURL = cp.execSync("git remote get-url origin", options).toString();
-    let url = cloneURL.replace(":", "/").replace("git@", "https://").replace(".git", "").trim();
+    let url = cloneURL
+        .replace(":", "/")
+        .replace("git@", "https://")
+        .replace(".git", "")
+        .trim();
     console.log(url);
     vscode.env.openExternal(vscode.Uri.parse(url));
 }
