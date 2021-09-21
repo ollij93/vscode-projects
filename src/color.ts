@@ -234,24 +234,21 @@ COLOR_CODES.set("Washington Football Team", {
     inactiveForeground: "#773141",
 });
 
-export function showColorQuickPick(): Promise<ColorCode> {
-    return new Promise((resolve, reject) => {
-        vscode.window
-            .showQuickPick(Array.from(COLOR_CODES.keys()))
-            .then((colorName: string | undefined) => {
-                // Color selected (if name not undefined)
-                if (colorName === undefined) {
-                    reject("No color selected.");
-                    return;
-                }
+export async function showColorQuickPick(): Promise<ColorCode> {
+    let colorName = await vscode.window.showQuickPick(
+        Array.from(COLOR_CODES.keys())
+    );
 
-                // Select the right ColorCode from the selected name
-                let c: ColorCode | undefined = COLOR_CODES.get(colorName);
-                if (c === undefined) {
-                    reject("Color not defined.");
-                } else {
-                    resolve(c);
-                }
-            }, reject);
-    });
+    // Color selected (if name not undefined)
+    if (colorName === undefined) {
+        throw new Error("No color selected.");
+    }
+
+    // Select the right ColorCode from the selected name
+    let c: ColorCode | undefined = COLOR_CODES.get(colorName);
+    if (c === undefined) {
+        throw new Error("Color not defined.");
+    } else {
+        return c;
+    }
 }

@@ -34,7 +34,7 @@ function getRootLocations(): string[] {
  *
  * @returns A promise that resolves with the selected item.
  */
-function getRootLocation(): Promise<string> {
+async function getRootLocation(): Promise<string> {
     let choices: string[] = getRootLocations();
     // If there's only one choice don't prompt for the users input
     if (choices.length === 1) {
@@ -44,7 +44,7 @@ function getRootLocation(): Promise<string> {
     }
 
     // Create a promise from the quick pick
-    return utils.showQuickPick(choices);
+    return await utils.showQuickPick(choices);
 }
 
 /**
@@ -81,8 +81,8 @@ function getCodeWorkspacePath(repo: github.Repo): string {
  *
  * @param filePath The file path to be opened in the current window.
  */
-function openInThisWindow(filePath: string) {
-    vscode.commands.executeCommand(
+async function openInThisWindow(filePath: string) {
+    await vscode.commands.executeCommand(
         "vscode.openFolder",
         vscode.Uri.file(filePath),
         false
@@ -129,7 +129,7 @@ function findLocalCheckout(root: string, repo: github.Repo): string | null {
  * @param repo The github repo to get a local workspace for.
  * @returns A promise that resolves with the path to the local workspace.
  */
-function obtainLocalWorkspace(repo: github.Repo): Promise<string> {
+async function obtainLocalWorkspace(repo: github.Repo): Promise<string> {
     let projectsRoots = getRootLocations();
 
     let checkout: string | null = null;
@@ -145,9 +145,8 @@ function obtainLocalWorkspace(repo: github.Repo): Promise<string> {
         console.log(
             "No local checkout of " + repo.full_name + " found, cloning..."
         );
-        return getRootLocation().then((root) => {
-            return github.clone(repo, root);
-        });
+        let root = await getRootLocation();
+        return await github.clone(repo, root);
     } else {
         let c: string = checkout;
         console.log(`Found local checkout of ${repo.full_name} at ${c}`);
@@ -166,11 +165,11 @@ function obtainLocalWorkspace(repo: github.Repo): Promise<string> {
  * @returns A promise that resolves with the path to the created code
  * workspace file.
  */
-function createCodeWorkspace(
+async function createCodeWorkspace(
     workspace: string,
     repo: github.Repo
 ): Promise<string> {
-    return showColorQuickPick().then((color: ColorCode) => {
+    return await showColorQuickPick().then((color: ColorCode) => {
         // Create and then open the .code-workspace file
         let codeWsPath = getCodeWorkspacePath(repo);
         let codeWsContent: { [key: string]: any } = {
@@ -206,7 +205,7 @@ function createCodeWorkspace(
  * @param repo The github repo to get a code workspace file path for.
  * @returns A promise that resolves with the path to the code workspace file.
  */
-function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
+async function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
     // Find the code-workspace file for the repo.
     // If it doesn't exist try and create a new one by cloning the project
     // Otherwise just open the exising one
@@ -220,9 +219,8 @@ function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
         });
     } catch (error) {
         console.log(`Will create new code workspace`);
-        return obtainLocalWorkspace(repo).then((ws) => {
-            return createCodeWorkspace(ws, repo);
-        });
+        let ws = await obtainLocalWorkspace(repo);
+        return await createCodeWorkspace(ws, repo);
     }
 }
 
@@ -241,8 +239,8 @@ function mapFromReposArray(repos: github.Repo[]): Map<string, github.Repo> {
  *
  * @returns A promise that resolves with this map.
  */
-function getAllReposMap(): Promise<Map<string, github.Repo>> {
-    return Promise.allSettled(github.getAPIs().map(github.getRepos)).then(
+async function getAllReposMap(): Promise<Map<string, github.Repo>> {
+    return await Promise.allSettled(github.getAPIs().map(github.getRepos)).then(
         // Remap from array of arrays of repos to a map
         (apiRepos: PromiseSettledResult<github.Repo[]>[]) => {
             let maps: Map<string, github.Repo>[] = [];
@@ -266,8 +264,8 @@ function getAllReposMap(): Promise<Map<string, github.Repo>> {
     );
 }
 
-function userInputRepoName(repos: github.Repo[]): Promise<string> {
-    return utils.showInputBox().then((name) => {
+async function userInputRepoName(repos: github.Repo[]): Promise<string> {
+    return await utils.showInputBox().then((name) => {
         name = name.trim();
         if (!name || name in repos.map((x) => x.name)) {
             // No name given or existing repo
@@ -282,12 +280,12 @@ function userInputRepoName(repos: github.Repo[]): Promise<string> {
     });
 }
 
-function userSelectTemplate(
+async function userSelectTemplate(
     host: string,
     repos: github.Repo[],
     name: string
 ): Promise<[string, string, github.Repo?]> {
-    return utils
+    return await utils
         .quickPickFromMap(mapFromReposArray(repos))
         .then((repo) => {
             return new Promise<[string, string, github.Repo?]>((res, _) => {
@@ -307,14 +305,11 @@ function userSelectTemplate(
  * @returns A promise that resolves with the host API and the name of the new
  * repo to be created.
  */
-function userInputNewRepoOptions(): Promise<[string, string, github.Repo?]> {
-    return utils.showQuickPick(github.getAPIs()).then((host) => {
-        return github.getRepos(host).then((repos) => {
-            return userInputRepoName(repos).then((name) => {
-                return userSelectTemplate(host, repos, name);
-            });
-        });
-    });
+async function userInputNewRepoOptions(): Promise<[string, string, github.Repo?]> {
+    let host = await utils.showQuickPick(github.getAPIs());
+    let repos = await github.getRepos(host);
+    let name = await userInputRepoName(repos);
+    return await userSelectTemplate(host, repos, name);
 }
 
 // ============================================================================
@@ -326,8 +321,8 @@ function userInputNewRepoOptions(): Promise<[string, string, github.Repo?]> {
  *
  * Has the user select a repo and then opens that repos code workspace file.
  */
-function selectProject() {
-    getAllReposMap()
+async function selectProject() {
+    await getAllReposMap()
         .then(utils.quickPickFromMap)
         .then(obtainCodeWorkspace)
         .then(openInThisWindow);
@@ -339,13 +334,11 @@ function selectProject() {
  * Has the user input options, creates the repo accordingly and then opens
  * the created repos code workspace file.
  */
-function newProject() {
-    userInputNewRepoOptions()
-        .then((opts) => {
-            return github.createRepo(...opts);
-        })
-        .then(obtainCodeWorkspace)
-        .then(openInThisWindow);
+async function newProject() {
+    let options = await userInputNewRepoOptions();
+    let repo = await github.createRepo(...options);
+    let ws = await obtainCodeWorkspace(repo);
+    await openInThisWindow(ws);
 }
 
 function openGitHubPage() {

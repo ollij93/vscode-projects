@@ -1,7 +1,6 @@
+import axios from "axios";
 import * as cp from "child_process";
 import * as fs from "fs";
-import * as http from "http";
-import * as https from "https";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
@@ -67,82 +66,48 @@ export module github {
         });
     }
 
-    function makeApiRequest(
+    type Method = "GET" | "POST";
+
+    async function makeApiRequest<T>(
         host: string,
         path: string,
-        method: string = "GET",
+        method: Method = "GET",
         data?: string
-    ): Promise<string> {
-        return new Promise((resolve, reject) => {
-            // @@@ - TODO: Handle case where git isn't available - use local checkouts
-            let pass: string = getToken(host);
-            let hostParts: Array<string> = host.split("/");
-            host = hostParts[0];
-            hostParts.shift();
-            let hostUrlPath: string = hostParts.join("/");
-            if (hostUrlPath !== "") {
-                hostUrlPath = "/" + hostUrlPath;
-            }
-            let options: https.RequestOptions = {
+    ): Promise<T> {
+        let pass: string = getToken(host);
+        return await axios
+            .request<T>({
                 method: method,
-                hostname: host,
-                path: hostUrlPath + path,
-                port: 443,
+                url: `https://${host}${path}`,
                 headers: {
                     authorization: "token " + pass,
                     // eslint-disable-next-line @typescript-eslint/naming-convention
                     "User-Agent": "other",
                 },
-            };
-            let req = https.request(options, (res: http.IncomingMessage) => {
-                let content: string = "";
-                res.on("data", function (chunk) {
-                    content += chunk.toString();
-                });
-                res.on("end", () => {
-                    resolve(content);
-                });
-            });
-            if (data !== undefined) {
-                req.write(data);
-            }
-            req.on("error", (e) => {
-                console.error(e);
-                vscode.window.showErrorMessage(
-                    `Failed to make API request to ${host}`
-                );
-                reject(e);
-            });
-            req.on("abort", () => {
-                vscode.window.showErrorMessage(
-                    `Failed to make API request to ${host}`
-                );
-                reject();
-            });
-            req.end();
-        });
+                data: data,
+            })
+            .then((resp) => resp.data);
     }
 
-    export function getRepos(host: string): Promise<Array<Repo>> {
-        return makeApiRequest(host, "/user/repos?visibility=all").then(
-            (content) => {
-                // Parse the repository JSON and convert into a Map for later use.
-                let reposArray: Array<Repo> = JSON.parse(content);
-                console.log(reposArray);
-                return reposArray;
-            }
+    export async function getRepos(host: string): Promise<Array<Repo>> {
+        let reposArray: Repo[] = await makeApiRequest<Repo[]>(
+            host,
+            "/user/repos?visibility=all"
         );
+        console.log(reposArray);
+        return reposArray;
     }
 
-    export function createRepo(
+    export async function createRepo(
         host: string,
         name: string,
         templateRepo?: github.Repo
     ): Promise<Repo> {
         let requestPath = templateRepo
-            ? `/repost/${templateRepo.full_name}/generate`
+            ? `/repos/${templateRepo.full_name}/generate`
             : "/user/repos";
-        return makeApiRequest(
+        console.log(requestPath);
+        let repo = await makeApiRequest<Repo>(
             host,
             requestPath,
             "POST",
@@ -150,19 +115,15 @@ export module github {
                 name: name,
                 private: true,
             })
-        ).then((content) => {
-            let repo: Repo = JSON.parse(content);
-            console.log("New repo:");
-            console.log(repo);
+        );
+        console.log("New repo:");
+        console.log(repo);
 
-            // Check that the message recieved has the expected content.
-            if (repo.ssh_url !== undefined) {
-                return repo;
-            } else {
-                return new Promise((_, rej) => {
-                    rej();
-                });
-            }
-        });
+        // Check that the message recieved has the expected content.
+        if (repo.ssh_url !== undefined) {
+            return repo;
+        } else {
+            throw new Error("Created repository returned no ssh_url");
+        }
     }
 }
