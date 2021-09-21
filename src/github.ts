@@ -83,6 +83,8 @@ export module github {
                     authorization: "token " + pass,
                     // eslint-disable-next-line @typescript-eslint/naming-convention
                     "User-Agent": "other",
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    Accept: "application/vnd.github.baptiste-preview+json"
                 },
                 data: data,
             })

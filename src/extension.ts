@@ -276,7 +276,9 @@ async function userSelectTemplate(
     name: string
 ): Promise<[string, string, github.Repo?]> {
     try {
-        let repo = await utils.quickPickFromMap(mapFromReposArray(repos));
+        let repo = await utils.quickPickFromMap(
+            mapFromReposArray(repos.filter((x) => x.is_template))
+        );
         return [host, name, repo];
     } catch {
         return [host, name, undefined];
