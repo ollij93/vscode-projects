@@ -39,3 +39,7 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 
 - Convert to using axios for requests
 - Change many functions to async functions to improve flow and structure
+
+## 0.2.4
+
+- Fixed github API template usage which currently needs a preview

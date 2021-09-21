@@ -83,3 +83,7 @@ Add a command to open the URL of the repo for the current workspace.
 
 Convert to using axios and async functions to improve the http requests
 handling.
+
+### 0.2.4
+
+Fixed github API template usage which currently needs a preview.
