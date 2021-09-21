@@ -34,3 +34,8 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 ## 0.2.2
 
 - Added the Open Github Page command
+
+## 0.2.3
+
+- Convert to using axios for requests
+- Change many functions to async functions to improve flow and structure

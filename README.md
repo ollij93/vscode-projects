@@ -78,3 +78,8 @@ Fix github API error handling.
 ### 0.2.2
 
 Add a command to open the URL of the repo for the current workspace.
+
+### 0.2.3
+
+Convert to using axios and async functions to improve the http requests
+handling.

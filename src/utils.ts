@@ -1,7 +1,7 @@
 import { resolve } from "dns";
 import * as vscode from "vscode";
 
-export function quickPickFromMap<T>(
+export async function quickPickFromMap<T>(
     map: Map<string, T>,
     sort = true
 ): Promise<T> {
@@ -28,26 +28,18 @@ export function quickPickFromMap<T>(
     });
 }
 
-export function showQuickPick(items: string[]): Promise<string> {
-    return new Promise((resolve, reject) => {
-        vscode.window.showQuickPick(items).then((item: string | undefined) => {
-            if (item === undefined) {
-                reject();
-            } else {
-                resolve(item);
-            }
-        });
-    });
+export async function showQuickPick(items: string[]): Promise<string> {
+    let item = await vscode.window.showQuickPick(items);
+    if (item === undefined) {
+        throw new Error("No item selected");
+    }
+    return item;
 }
 
-export function showInputBox(): Promise<string> {
-    return new Promise((resolve, reject) => {
-        vscode.window.showInputBox().then((item: string | undefined) => {
-            if (item === undefined) {
-                reject();
-            } else {
-                resolve(item);
-            }
-        });
-    });
+export async function showInputBox(): Promise<string> {
+    let input = await vscode.window.showInputBox();
+    if (input === undefined) {
+        throw new Error("No input given");
+    }
+    return input;
 }
