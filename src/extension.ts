@@ -234,28 +234,38 @@ function mapFromReposArray(repos: github.Repo[]): Map<string, github.Repo> {
  * @returns A promise that resolves with this map.
  */
 async function getAllReposMap(): Promise<Map<string, github.Repo>> {
-    return await Promise.allSettled(github.getAPIs().map(github.getRepos)).then(
-        // Remap from array of arrays of repos to a map
-        (apiRepos: PromiseSettledResult<github.Repo[]>[]) => {
-            let maps: Map<string, github.Repo>[] = [];
+    return new Promise((resolve, reject) => {
+        let promisemap = github.getAPIs().map(github.getRepos);
+        Promise.allSettled(promisemap).then(
+            // Remap from array of arrays of repos to a map
+            (apiRepos: PromiseSettledResult<github.Repo[]>[]) => {
+                let maps: Map<string, github.Repo>[] = [];
 
-            apiRepos.forEach((result) => {
-                if (result.status === "fulfilled") {
-                    maps.push(mapFromReposArray(result.value));
-                }
-            });
-
-            let ret: Map<string, github.Repo> = new Map();
-
-            maps.forEach((map) => {
-                [...map.entries()].forEach((val) => {
-                    ret.set(...val);
+                apiRepos.forEach((result) => {
+                    if (result.status === "fulfilled") {
+                        maps.push(mapFromReposArray(result.value));
+                    }
                 });
-            });
 
-            return ret;
-        }
-    );
+                let ret: Map<string, github.Repo> = new Map();
+
+                maps.forEach((map) => {
+                    [...map.entries()].forEach((val) => {
+                        ret.set(...val);
+                    });
+                });
+
+                if (ret.size > 0) {
+                    resolve(ret);
+                } else {
+                    vscode.window.showErrorMessage(
+                        "Failed to find any projects"
+                    );
+                    reject();
+                }
+            }
+        );
+    });
 }
 
 async function userInputRepoName(repos: github.Repo[]): Promise<string> {
@@ -276,9 +286,11 @@ async function userSelectTemplate(
     name: string
 ): Promise<[string, string, github.Repo?]> {
     try {
-        let repo = await utils.quickPickFromMap(
-            mapFromReposArray(repos.filter((x) => x.is_template))
-        );
+        let choices = mapFromReposArray(repos.filter((x) => x.is_template));
+        let repo = undefined;
+        if (choices) {
+            repo = await utils.quickPickFromMap(choices);
+        }
         return [host, name, repo];
     } catch {
         return [host, name, undefined];

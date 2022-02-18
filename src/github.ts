@@ -25,20 +25,31 @@ export module github {
         return config.get("githubServerAPIs") || [];
     }
 
-    export function getToken(host: string): string {
-        // @@@ - TODO: Error handling
-        try {
-            return JSON.parse(
-                fs
-                    .readFileSync(
-                        os.homedir() + path.sep + ".ollij93.githubkeys"
-                    )
-                    .toString()
-            )[host];
-        } catch (error) {
-            console.error(error);
-            return "";
-        }
+    export function getToken(host: string): Promise<string> {
+        let keysFile = os.homedir() + path.sep + ".ollij93.githubkeys";
+        return new Promise((resolve, reject) => {
+            fs.readFile(
+                keysFile,
+                (err: NodeJS.ErrnoException | null, data: Buffer) => {
+                    if (err) {
+                        vscode.window.showErrorMessage(err.toString());
+                        reject(err);
+                    } else {
+                        try {
+                            let obj = JSON.parse(data.toString());
+                            resolve(obj[host]);
+                        } catch (error) {
+                            if (error instanceof SyntaxError) {
+                                vscode.window.showErrorMessage(error.toString());
+                            } else {
+                                console.error(error);
+                            }
+                            reject(error);
+                        }
+                    }
+                }
+            );
+        });
     }
 
     export function clone(repo: Repo, root: string): Promise<string> {
@@ -74,30 +85,26 @@ export module github {
         method: Method = "GET",
         data?: string
     ): Promise<T> {
-        let pass: string = getToken(host);
-        return await axios
-            .request<T>({
-                method: method,
-                url: `https://${host}${path}`,
-                headers: {
-                    authorization: "token " + pass,
-                    // eslint-disable-next-line @typescript-eslint/naming-convention
-                    "User-Agent": "other",
-                    // eslint-disable-next-line @typescript-eslint/naming-convention
-                    Accept: "application/vnd.github.baptiste-preview+json"
-                },
-                data: data,
-            })
+        return getToken(host)
+            .then((pass) =>
+                axios.request<T>({
+                    method: method,
+                    url: `https://${host}${path}`,
+                    headers: {
+                        authorization: "token " + pass,
+                        // eslint-disable-next-line @typescript-eslint/naming-convention
+                        "User-Agent": "other",
+                        // eslint-disable-next-line @typescript-eslint/naming-convention
+                        Accept: "application/vnd.github.baptiste-preview+json",
+                    },
+                    data: data,
+                })
+            )
             .then((resp) => resp.data);
     }
 
     export async function getRepos(host: string): Promise<Array<Repo>> {
-        let reposArray: Repo[] = await makeApiRequest<Repo[]>(
-            host,
-            "/user/repos?visibility=all"
-        );
-        console.log(reposArray);
-        return reposArray;
+        return makeApiRequest<Repo[]>(host, "/user/repos?visibility=all");
     }
 
     export async function createRepo(
@@ -108,8 +115,7 @@ export module github {
         let requestPath = templateRepo
             ? `/repos/${templateRepo.full_name}/generate`
             : "/user/repos";
-        console.log(requestPath);
-        let repo = await makeApiRequest<Repo>(
+        return makeApiRequest<Repo>(
             host,
             requestPath,
             "POST",
@@ -117,15 +123,16 @@ export module github {
                 name: name,
                 private: true,
             })
-        );
-        console.log("New repo:");
-        console.log(repo);
+        ).then((repo) => {
+            console.log("New repo:");
+            console.log(repo);
 
-        // Check that the message recieved has the expected content.
-        if (repo.ssh_url !== undefined) {
-            return repo;
-        } else {
-            throw new Error("Created repository returned no ssh_url");
-        }
+            // Check that the message recieved has the expected content.
+            if (repo.ssh_url !== undefined) {
+                return repo;
+            } else {
+                throw new Error("Created repository returned no ssh_url");
+            }
+        });
     }
 }
