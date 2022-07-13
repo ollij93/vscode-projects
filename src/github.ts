@@ -1,55 +1,63 @@
 import axios from "axios";
 import * as cp from "child_process";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 
 export module github {
+    // Allow snake case names here as that's what the github api returns.
+    /* eslint-disable @typescript-eslint/naming-convention */
     export interface Repo {
         name: string;
-        // eslint-disable-next-line @typescript-eslint/naming-convention
         full_name: string;
-        // eslint-disable-next-line @typescript-eslint/naming-convention
         ssh_url: string;
         owner: {
             login: string;
             type: string;
         };
-        // eslint-disable-next-line @typescript-eslint/naming-convention
         is_template: boolean;
     }
+    /* eslint-enable */
 
-    export function getAPIs(): Array<string> {
-        let config = vscode.workspace.getConfiguration("vscode-projects");
+    export function getAPIs(
+        config: vscode.WorkspaceConfiguration
+    ): Array<string> {
         return config.get("githubServerAPIs") || [];
     }
 
-    export function getToken(host: string): Promise<string> {
-        let keysFile = os.homedir() + path.sep + ".ollij93.githubkeys";
-        return new Promise((resolve, reject) => {
-            fs.readFile(
-                keysFile,
-                (err: NodeJS.ErrnoException | null, data: Buffer) => {
-                    if (err) {
-                        vscode.window.showErrorMessage(err.toString());
-                        reject(err);
-                    } else {
-                        try {
-                            let obj = JSON.parse(data.toString());
-                            resolve(obj[host]);
-                        } catch (error) {
-                            if (error instanceof SyntaxError) {
-                                vscode.window.showErrorMessage(error.toString());
-                            } else {
-                                console.error(error);
-                            }
-                            reject(error);
-                        }
-                    }
-                }
-            );
-        });
+    export function getToken(
+        config: vscode.WorkspaceConfiguration,
+        host: string
+    ): string {
+        // Get the configured keys path
+        let keysFile: string | undefined = config.get("githubKeysPath");
+        if (keysFile === undefined) {
+            const msg = "No item configured for githubKeysPath"
+            vscode.window.showErrorMessage(msg);
+            throw new Error(msg);
+        }
+
+        // Check the configured file exists
+        let path: string = keysFile;
+        if (!fs.existsSync(path)) {
+            const msg = "The configured path for githubKeysPath does not exist: " + path;
+            vscode.window.showErrorMessage(msg);
+            throw new Error(msg);
+        }
+
+        // Read the file and parse the content
+        try {
+            let data = fs.readFileSync(path);
+            let obj = JSON.parse(data.toString());
+            return (obj[host]);
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                vscode.window.showErrorMessage(error.toString());
+            } else {
+                console.error(error);
+            }
+            throw error;
+        }
     }
 
     export function clone(repo: Repo, root: string): Promise<string> {
@@ -80,34 +88,32 @@ export module github {
     type Method = "GET" | "POST";
 
     async function makeApiRequest<T>(
+        token: string,
         host: string,
         path: string,
         method: Method = "GET",
         data?: string
     ): Promise<T> {
-        return getToken(host)
-            .then((pass) =>
-                axios.request<T>({
-                    method: method,
-                    url: `https://${host}${path}`,
-                    headers: {
-                        authorization: "token " + pass,
-                        // eslint-disable-next-line @typescript-eslint/naming-convention
-                        "User-Agent": "other",
-                        // eslint-disable-next-line @typescript-eslint/naming-convention
-                        Accept: "application/vnd.github.baptiste-preview+json",
-                    },
-                    data: data,
-                })
-            )
-            .then((resp) => resp.data);
+        return axios.request<T>({
+            /* eslint-disable @typescript-eslint/naming-convention */
+            method: method,
+            url: `https://${host}${path}`,
+            headers: {
+                authorization: "token " + token,
+                "User-Agent": "other",
+                Accept: "application/vnd.github.baptiste-preview+json",
+            },
+            data: data,
+            /* eslint-enable */
+        }).then((resp) => resp.data);
     }
 
-    export async function getRepos(host: string): Promise<Array<Repo>> {
-        return makeApiRequest<Repo[]>(host, "/user/repos?visibility=all");
+    export async function getRepos(token: string, host: string): Promise<Array<Repo>> {
+        return makeApiRequest<Repo[]>(token, host, "/user/repos?visibility=all");
     }
 
     export async function createRepo(
+        token: string,
         host: string,
         name: string,
         templateRepo?: github.Repo
@@ -116,6 +122,7 @@ export module github {
             ? `/repos/${templateRepo.full_name}/generate`
             : "/user/repos";
         return makeApiRequest<Repo>(
+            token,
             host,
             requestPath,
             "POST",

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as utils from "./utils";
 
 export interface ColorCode {
     activeBackground: string;
@@ -8,7 +9,7 @@ export interface ColorCode {
     inactiveForeground: string;
 }
 
-let COLOR_CODES: Map<string, ColorCode> = new Map();
+export let COLOR_CODES: Map<string, ColorCode> = new Map();
 COLOR_CODES.set("Arizona Cardinals", {
     activeBackground: "#97233F",
     activeForeground: "#000000",
@@ -234,18 +235,41 @@ COLOR_CODES.set("Washington Football Team", {
     inactiveForeground: "#773141",
 });
 
-export async function showColorQuickPick(): Promise<ColorCode> {
-    let colorName = await vscode.window.showQuickPick(
-        Array.from(COLOR_CODES.keys())
-    );
-
-    // Color selected (if name not undefined)
-    if (colorName === undefined) {
-        throw new Error("No color selected.");
+function hashStr(str: string): number {
+    var hash = 0;
+    for (var i = 0; i < str.length; i++) {
+        var char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
     }
+    return Math.abs(hash);
+}
 
-    // Select the right ColorCode from the selected name
-    let c: ColorCode | undefined = COLOR_CODES.get(colorName);
+function defaultColorCode(projectName: string): string {
+    let projectHash: number = hashStr(projectName);
+    console.log(projectHash);
+    return Array.from(COLOR_CODES.keys())[projectHash % COLOR_CODES.size];
+}
+
+export function getItems(projectName: string): utils.QuickPickItemsWithDefault {
+    const defaultColor = defaultColorCode(projectName);
+    const defaultItem: vscode.QuickPickItem = {
+        label: defaultColor,
+        description: "(default)"
+    };
+    const items = [defaultItem].concat(
+        Array.from(COLOR_CODES.keys()).filter(
+            (x) => { return x !== defaultColor; }
+        ).flatMap((x, _, __) => { return { label: x }; })
+    );
+    return {
+        items: items,
+        default: defaultItem
+    };
+}
+
+export function processSelected(selectedItem: vscode.QuickPickItem): ColorCode {
+    const c = COLOR_CODES.get(selectedItem.label);
     if (c === undefined) {
         throw new Error("Color not defined.");
     } else {

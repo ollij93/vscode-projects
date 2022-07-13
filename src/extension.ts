@@ -1,11 +1,9 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as cp from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as vscode from "vscode";
-import { showColorQuickPick, ColorCode } from "./color";
+import * as color from "./color";
 import { github } from "./github";
 import * as utils from "./utils";
 
@@ -16,8 +14,7 @@ import * as utils from "./utils";
  *
  * @returns The configured root location as a string.
  */
-function getRootLocations(): string[] {
-    let config = vscode.workspace.getConfiguration("vscode-projects");
+function getRootLocations(config: vscode.WorkspaceConfiguration): string[] {
     let r: string[] | undefined = config.get("projectsRootLocation");
     let root: string[];
     if (r === undefined || r.length === 0) {
@@ -34,8 +31,10 @@ function getRootLocations(): string[] {
  *
  * @returns A promise that resolves with the selected item.
  */
-async function getRootLocation(): Promise<string> {
-    let choices: string[] = getRootLocations();
+async function getRootLocation(
+    config: vscode.WorkspaceConfiguration
+): Promise<string> {
+    let choices: string[] = getRootLocations(config);
     // If there's only one choice don't prompt for the users input
     if (choices.length === 1) {
         return choices[0];
@@ -52,8 +51,7 @@ async function getRootLocation(): Promise<string> {
  *
  * @returns The configured location for core workspace files.
  */
-function getWSLocation(): string {
-    let config = vscode.workspace.getConfiguration("vscode-projects");
+function getWSLocation(config: vscode.WorkspaceConfiguration): string {
     let d: string | undefined = config.get("workspaceFilesLocation");
     let dir: string;
     if (d === undefined || d === "") {
@@ -70,8 +68,11 @@ function getWSLocation(): string {
  * @param repo The repo to get the code workspace file path for.
  * @returns The code workspace file path as a string.
  */
-function getCodeWorkspacePath(repo: github.Repo): string {
-    return [getWSLocation(), repo.name + ".code-workspace"].join(path.sep);
+function getCodeWorkspacePath(
+    config: vscode.WorkspaceConfiguration,
+    repo: github.Repo
+): string {
+    return [getWSLocation(config), repo.name + ".code-workspace"].join(path.sep);
 }
 
 /**
@@ -127,8 +128,11 @@ function findLocalCheckout(root: string, repo: github.Repo): string | null {
  * @param repo The github repo to get a local workspace for.
  * @returns A promise that resolves with the path to the local workspace.
  */
-async function obtainLocalWorkspace(repo: github.Repo): Promise<string> {
-    let projectsRoots = getRootLocations();
+async function obtainLocalWorkspace(
+    config: vscode.WorkspaceConfiguration,
+    repo: github.Repo
+): Promise<string> {
+    let projectsRoots = getRootLocations(config);
 
     let checkout: string | null = null;
     projectsRoots.every((root) => {
@@ -143,7 +147,7 @@ async function obtainLocalWorkspace(repo: github.Repo): Promise<string> {
         console.log(
             "No local checkout of " + repo.full_name + " found, cloning..."
         );
-        let root = await getRootLocation();
+        let root = await getRootLocation(config);
         return await github.clone(repo, root);
     } else {
         let c: string = checkout;
@@ -156,43 +160,56 @@ async function obtainLocalWorkspace(repo: github.Repo): Promise<string> {
  * Create a code workspace file for the provided repo which is available at
  * the given workspace location.
  *
+ * @param config The configuration for this extension.
  * @param workspace The path to a local checkout of the repo.
  * @param repo The github repo to create the code workspace file for.
  * @returns A promise that resolves with the path to the created code
  * workspace file.
  */
 async function createCodeWorkspace(
+    config: vscode.WorkspaceConfiguration,
     workspace: string,
     repo: github.Repo
 ): Promise<string> {
-    return await showColorQuickPick().then((color: ColorCode) => {
-        // Create and then open the .code-workspace file
-        let codeWsPath = getCodeWorkspacePath(repo);
-        let codeWsContent: { [key: string]: any } = {
-            folders: [
-                {
-                    path: workspace,
-                },
-            ],
-            settings: {
-                "window.title":
-                    `[${repo.name}]` +
-                    " ${dirty} ${activeEditorMedium}${separator}${rootName}",
-                "workbench.colorCustomizations": {
-                    "titleBar.activeBackground": color.activeBackground,
-                    "titleBar.activeForeground": color.activeForeground,
-                    "titleBar.border": color.borderColor,
-                    "titleBar.inactiveBackground": color.inactiveBackground,
-                    "titleBar.inactiveForeground": color.inactiveForeground,
-                },
+    // Set up the color selector and wait for a choice
+    const colorItems = color.getItems(repo.name);
+    console.log(colorItems);
+    console.log(color.COLOR_CODES);
+    const options: vscode.QuickPickOptions = {
+        placeHolder: "Select Color Theme",
+    };
+    const selected = await vscode.window.showQuickPick(colorItems.items, options) || colorItems.default;
+    const selectedColor = color.processSelected(selected);
+
+    // Create and then open the .code-workspace file
+    let codeWsPath = getCodeWorkspacePath(config, repo);
+    let codeWsContent: { [key: string]: any } = {
+        folders: [
+            {
+                path: workspace,
             },
-        };
-        if (!fs.existsSync(path.dirname(codeWsPath))) {
-            fs.mkdirSync(path.dirname(codeWsPath));
-        }
-        fs.writeFileSync(codeWsPath, JSON.stringify(codeWsContent));
-        return codeWsPath;
-    });
+        ],
+        settings: {
+            "window.title":
+                `[${repo.name}]` +
+                " ${dirty} ${activeEditorMedium}${separator}${rootName}",
+            "workbench.colorCustomizations": {
+                "activityBar.background": selectedColor.activeBackground,
+                "activityBar.foreground": selectedColor.activeForeground,
+                "activityBar.border": selectedColor.borderColor,
+                "titleBar.activeBackground": selectedColor.activeBackground,
+                "titleBar.activeForeground": selectedColor.activeForeground,
+                "titleBar.border": selectedColor.borderColor,
+                "titleBar.inactiveBackground": selectedColor.inactiveBackground,
+                "titleBar.inactiveForeground": selectedColor.inactiveForeground,
+            },
+        },
+    };
+    if (!fs.existsSync(path.dirname(codeWsPath))) {
+        fs.mkdirSync(path.dirname(codeWsPath));
+    }
+    fs.writeFileSync(codeWsPath, JSON.stringify(codeWsContent));
+    return codeWsPath;
 }
 
 /**
@@ -201,11 +218,14 @@ async function createCodeWorkspace(
  * @param repo The github repo to get a code workspace file path for.
  * @returns A promise that resolves with the path to the code workspace file.
  */
-async function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
+async function obtainCodeWorkspace(
+    config: vscode.WorkspaceConfiguration,
+    repo: github.Repo
+): Promise<string> {
     // Find the code-workspace file for the repo.
     // If it doesn't exist try and create a new one by cloning the project
     // Otherwise just open the exising one
-    let codeWsPath = getCodeWorkspacePath(repo);
+    let codeWsPath = getCodeWorkspacePath(config, repo);
 
     try {
         fs.accessSync(codeWsPath, fs.constants.F_OK);
@@ -213,8 +233,8 @@ async function obtainCodeWorkspace(repo: github.Repo): Promise<string> {
         return codeWsPath;
     } catch (error) {
         console.log(`Will create new code workspace`);
-        let ws = await obtainLocalWorkspace(repo);
-        return await createCodeWorkspace(ws, repo);
+        let ws = await obtainLocalWorkspace(config, repo);
+        return await createCodeWorkspace(config, ws, repo);
     }
 }
 
@@ -233,12 +253,18 @@ function mapFromReposArray(repos: github.Repo[]): Map<string, github.Repo> {
  *
  * @returns A promise that resolves with this map.
  */
-async function getAllReposMap(): Promise<Map<string, github.Repo>> {
+async function getAllReposMap(
+    config: vscode.WorkspaceConfiguration
+): Promise<Map<string, github.Repo>> {
     return new Promise((resolve, reject) => {
-        let promisemap = github.getAPIs().map(github.getRepos);
+        let promisemap = github.getAPIs(config).map((host) => {
+            let token = github.getToken(config, host);
+            return github.getRepos(token, host);
+        });
         Promise.allSettled(promisemap).then(
             // Remap from array of arrays of repos to a map
             (apiRepos: PromiseSettledResult<github.Repo[]>[]) => {
+                console.log(apiRepos);
                 let maps: Map<string, github.Repo>[] = [];
 
                 apiRepos.forEach((result) => {
@@ -258,9 +284,7 @@ async function getAllReposMap(): Promise<Map<string, github.Repo>> {
                 if (ret.size > 0) {
                     resolve(ret);
                 } else {
-                    vscode.window.showErrorMessage(
-                        "Failed to find any projects"
-                    );
+                    vscode.window.showErrorMessage("Failed to find any projects");
                     reject();
                 }
             }
@@ -303,11 +327,12 @@ async function userSelectTemplate(
  * @returns A promise that resolves with the host API and the name of the new
  * repo to be created.
  */
-async function userInputNewRepoOptions(): Promise<
-    [string, string, github.Repo?]
-> {
-    let host = await utils.showQuickPick(github.getAPIs());
-    let repos = await github.getRepos(host);
+async function userInputNewRepoOptions(
+    config: vscode.WorkspaceConfiguration
+): Promise<[string, string, github.Repo?]> {
+    let host = await utils.showQuickPick(github.getAPIs(config));
+    let token = github.getToken(config, host);
+    let repos = await github.getRepos(token, host);
     let name = await userInputRepoName(repos);
     return await userSelectTemplate(host, repos, name);
 }
@@ -322,9 +347,10 @@ async function userInputNewRepoOptions(): Promise<
  * Has the user select a repo and then opens that repos code workspace file.
  */
 async function selectProject() {
-    await getAllReposMap()
+    let config = vscode.workspace.getConfiguration("vscode-projects");
+    await getAllReposMap(config)
         .then(utils.quickPickFromMap)
-        .then(obtainCodeWorkspace)
+        .then((x) => { return obtainCodeWorkspace(config, x); })
         .then(openInThisWindow)
         .catch(console.error);
 }
@@ -336,10 +362,12 @@ async function selectProject() {
  * the created repos code workspace file.
  */
 async function newProject() {
+    let config = vscode.workspace.getConfiguration("vscode-projects");
     try {
-        let options = await userInputNewRepoOptions();
-        let repo = await github.createRepo(...options);
-        let ws = await obtainCodeWorkspace(repo);
+        let options = await userInputNewRepoOptions(config);
+        let token = github.getToken(config, options[0]);
+        let repo = await github.createRepo(token, ...options);
+        let ws = await obtainCodeWorkspace(config, repo);
         await openInThisWindow(ws);
     } catch (e) {
         console.error(e);

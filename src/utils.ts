@@ -1,5 +1,9 @@
-import { resolve } from "dns";
 import * as vscode from "vscode";
+
+export interface QuickPickItemsWithDefault {
+    items: vscode.QuickPickItem[],
+    default: vscode.QuickPickItem
+}
 
 export async function quickPickFromMap<T>(
     map: Map<string, T>,

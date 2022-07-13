@@ -1,3 +1,5 @@
+# These are files in this repo which should not be installed as part of the
+# vscode extension.
 .vscode/**
 .vscode-test/**
 out/test/**
