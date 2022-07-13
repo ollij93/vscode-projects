@@ -38,52 +38,13 @@ This extension contributes the following settings:
 Missing features:
 
 * GitHub key requires setup with no instructions
-* No choice of templates for creating new projects
+  * Now configurable, but more needed
 * Repository setup (e.g. requirements.txt install) not enabled
+* Ability to update color theme of existing project
 
 Problems:
 *None*
 
 ## Release Notes
 
-### 0.0.0
-
-Initial release of vscode-projects
-
-### 0.0.1
-
-Extended functionality for private GitHub repos and extended set of color
-codes now covering all 32 NFL teams.
-
-### 0.0.2
-
-Add configuration for locations to create project directories and
-code-workspace files.
-
-### 0.1.0
-
-Add the capability to configure multiple github server APIs.
-Display the full repository name when selecting project to split them by
-the owner.
-
-### 0.2.0
-
-Add the "new project" command.
-Add support for multiple root locations for cloning repositories.
-
-### 0.2.1
-
-Fix github API error handling.
-
-### 0.2.2
-
-Add a command to open the URL of the repo for the current workspace.
-
-### 0.2.3
-
-Convert to using axios and async functions to improve the http requests
-handling.
-
-### 0.2.4
-
-Fixed github API template usage which currently needs a preview.
+See CHANGELOG.md

@@ -43,3 +43,9 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 ## 0.2.4
 
 - Fixed github API template usage which currently needs a preview
+
+## 0.2.5
+
+- Add config option for where github keys are stored
+- Add activity bar coloring
+- Provide default color for projects
