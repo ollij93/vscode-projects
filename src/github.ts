@@ -32,7 +32,7 @@ export module github {
         // Get the configured keys path
         let keysFile: string | undefined = config.get("githubKeysPath");
         if (keysFile === undefined) {
-            const msg = "No item configured for githubKeysPath"
+            const msg = "No item configured for githubKeysPath";
             vscode.window.showErrorMessage(msg);
             throw new Error(msg);
         }
