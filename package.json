@@ -4,7 +4,7 @@
 	"description": "VSCode git projects management utility",
 	"publisher": "ollij93",
 	"repository": "https://github.com/ollij93/vscode-projects.git",
-	"version": "0.2.5",
+	"version": "0.3.0",
 	"engines": {
 		"vscode": "^1.52.0"
 	},
@@ -30,8 +30,8 @@
 				"title": "Ollij93: Open GitHub Page"
 			},
 			{
-				"command": "vscode-projects.makeaxiosrequest",
-				"title": "Ollij93: Make Axios Request"
+				"command": "vscode-projects.updateProjectColors",
+				"title": "Ollij93: Update Project Colors"
 			}
 		],
 		"configuration": {

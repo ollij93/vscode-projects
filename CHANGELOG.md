@@ -49,3 +49,7 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 - Add config option for where github keys are stored
 - Add activity bar coloring
 - Provide default color for projects
+
+## 0.3.0
+
+- Add the "Update Project Colors" command

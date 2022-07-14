@@ -40,7 +40,6 @@ Missing features:
 * GitHub key requires setup with no instructions
   * Now configurable, but more needed
 * Repository setup (e.g. requirements.txt install) not enabled
-* Ability to update color theme of existing project
 
 Problems:
 *None*

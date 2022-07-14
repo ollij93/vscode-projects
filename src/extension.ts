@@ -156,6 +156,28 @@ async function obtainLocalWorkspace(
     }
 }
 
+class WorkbenchColors {
+    "activityBar.background": string;
+    "activityBar.foreground": string;
+    "activityBar.border": string;
+    "titleBar.activeBackground": string;
+    "titleBar.activeForeground": string;
+    "titleBar.border": string;
+    "titleBar.inactiveBackground": string;
+    "titleBar.inactiveForeground": string;
+
+    constructor(selectedColor: color.ColorCode) {
+        this["activityBar.background"] = selectedColor.activeBackground;
+        this["activityBar.foreground"] = selectedColor.activeForeground;
+        this["activityBar.border"] = selectedColor.borderColor;
+        this["titleBar.activeBackground"] = selectedColor.activeBackground;
+        this["titleBar.activeForeground"] = selectedColor.activeForeground;
+        this["titleBar.border"] = selectedColor.borderColor;
+        this["titleBar.inactiveBackground"] = selectedColor.inactiveBackground;
+        this["titleBar.inactiveForeground"] = selectedColor.inactiveForeground;
+    }
+}
+
 /**
  * Create a code workspace file for the provided repo which is available at
  * the given workspace location.
@@ -193,16 +215,7 @@ async function createCodeWorkspace(
             "window.title":
                 `[${repo.name}]` +
                 " ${dirty} ${activeEditorMedium}${separator}${rootName}",
-            "workbench.colorCustomizations": {
-                "activityBar.background": selectedColor.activeBackground,
-                "activityBar.foreground": selectedColor.activeForeground,
-                "activityBar.border": selectedColor.borderColor,
-                "titleBar.activeBackground": selectedColor.activeBackground,
-                "titleBar.activeForeground": selectedColor.activeForeground,
-                "titleBar.border": selectedColor.borderColor,
-                "titleBar.inactiveBackground": selectedColor.inactiveBackground,
-                "titleBar.inactiveForeground": selectedColor.inactiveForeground,
-            },
+            "workbench.colorCustomizations": new WorkbenchColors(selectedColor),
         },
     };
     if (!fs.existsSync(path.dirname(codeWsPath))) {
@@ -394,6 +407,23 @@ function openGitHubPage() {
     vscode.env.openExternal(vscode.Uri.parse(url));
 }
 
+async function updateProjectColors() {
+    const config = vscode.workspace.getConfiguration();
+
+    // Get the project name from the window title
+    const title: string = config.get("window.title") || "";
+    const projname = (/\[(.*)\]/.exec(title) || ["", ""])[1];
+
+    // Set up the color selector and wait for a choice
+    const colorItems = color.getItems(projname);
+    const options: vscode.QuickPickOptions = {
+        placeHolder: "Select Color Theme",
+    };
+    const selected = await vscode.window.showQuickPick(colorItems.items, options) || colorItems.default;
+    const selectedColor = color.processSelected(selected);
+    await config.update("workbench.colorCustomizations", new WorkbenchColors(selectedColor), vscode.ConfigurationTarget.Workspace);
+}
+
 // ============================================================================
 
 // this method is called when your extension is activated
@@ -419,6 +449,11 @@ export function activate(context: vscode.ExtensionContext) {
         openGitHubPage
     );
     context.subscriptions.push(disposable);
+
+    disposable = vscode.commands.registerCommand(
+        "vscode-projects.updateProjectColors",
+        updateProjectColors
+    );
 }
 
 // this method is called when your extension is deactivated
