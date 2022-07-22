@@ -41,7 +41,7 @@ async function getRootLocation(
     }
 
     // Create a promise from the quick pick
-    return await utils.showQuickPick(choices);
+    return await utils.showQuickPick(choices, "Select root location");
 }
 
 /**
@@ -306,7 +306,7 @@ async function getAllReposMap(
 }
 
 async function userInputRepoName(repos: github.Repo[]): Promise<string> {
-    return await utils.showInputBox().then((name) => {
+    return await utils.showInputBox("Repository Name").then((name) => {
         name = name.trim();
         if (!name || name in repos.map((x) => x.name)) {
             // No name given or existing repo
@@ -323,10 +323,11 @@ async function userSelectTemplate(
     name: string
 ): Promise<[string, string, github.Repo?]> {
     try {
-        let choices = mapFromReposArray(repos.filter((x) => x.is_template));
+        let choices: Map<string, github.Repo | undefined> = mapFromReposArray(repos.filter((x) => x.is_template));
+        choices.set("empty", undefined);
         let repo = undefined;
         if (choices) {
-            repo = await utils.quickPickFromMap(choices);
+            repo = await utils.quickPickFromMap(choices, "Select template").then();
         }
         return [host, name, repo];
     } catch {
@@ -343,7 +344,7 @@ async function userSelectTemplate(
 async function userInputNewRepoOptions(
     config: vscode.WorkspaceConfiguration
 ): Promise<[string, string, github.Repo?]> {
-    let host = await utils.showQuickPick(github.getAPIs(config));
+    let host = await utils.showQuickPick(github.getAPIs(config), "Select github api");
     let token = github.getToken(config, host);
     let repos = await github.getRepos(token, host);
     let name = await userInputRepoName(repos);
@@ -362,7 +363,8 @@ async function userInputNewRepoOptions(
 async function selectProject() {
     let config = vscode.workspace.getConfiguration("vscode-projects");
     await getAllReposMap(config)
-        .then(utils.quickPickFromMap)
+        .then((x) => { return utils.quickPickFromMap(x, "Select project"); })
+        .then((x) => { if (x === undefined) { throw Error("No project selected."); } return (x); })
         .then((x) => { return obtainCodeWorkspace(config, x); })
         .then(openInThisWindow)
         .catch(console.error);
@@ -457,4 +459,4 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() { }

@@ -53,3 +53,9 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 ## 0.3.0
 
 - Add the "Update Project Colors" command
+
+## 0.3.1
+
+- Add placeholder text to user input fields
+- Add empty template option for new project creation
+- Fix cancelling new project creation on the template selection
