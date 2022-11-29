@@ -395,9 +395,10 @@ function openGitHubPage() {
         return;
     }
 
+    let wsPath = folders[0].uri.fsPath;
     let options: cp.ExecSyncOptionsWithStringEncoding = {
         encoding: "ascii",
-        cwd: folders[0].uri.fsPath,
+        cwd: wsPath,
     };
     let cloneURL = cp.execSync("git remote get-url origin", options).toString();
     let url = cloneURL
@@ -406,6 +407,15 @@ function openGitHubPage() {
         .replace(".git", "")
         .trim();
     console.log(url);
+    if (vscode.window.activeTextEditor != null) {
+        let branch = cp.execSync("git rev-parse --abbrev-ref HEAD", options).toString().trim();
+        let activePath = vscode.window.activeTextEditor.document.uri.fsPath;
+        let activeLine = vscode.window.activeTextEditor.selection.start.line;
+        let relPath = path.relative( wsPath, activePath );
+        console.log(relPath)
+        url = url + "/tree/" + branch + "/" + relPath + "#L" + activeLine ;
+    }
+
     vscode.env.openExternal(vscode.Uri.parse(url));
 }
 

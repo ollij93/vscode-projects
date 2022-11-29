@@ -227,7 +227,7 @@ COLOR_CODES.set("Tennessee Titans", {
     inactiveBackground: "#8A8D8F",
     inactiveForeground: "#0C2340",
 });
-COLOR_CODES.set("Washington Football Team", {
+COLOR_CODES.set("Washington Commanders", {
     activeBackground: "#773141",
     activeForeground: "#FFFFFF",
     borderColor: "#FFB612",

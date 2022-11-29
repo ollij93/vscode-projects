@@ -59,3 +59,8 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 - Add placeholder text to user input fields
 - Add empty template option for new project creation
 - Fix cancelling new project creation on the template selection
+
+## 0.3.2
+
+- Rename Washington Commanders color scheme
+- Extend the open github page command to open the active file and line
