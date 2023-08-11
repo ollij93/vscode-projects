@@ -235,6 +235,21 @@ COLOR_CODES.set("Washington Commanders", {
     inactiveForeground: "#773141",
 });
 
+// Duplicate the color codes, providing an inverted version of each where the
+// border and background colors are swapped.
+const ORIGINAL_COLOR_CODES = [...COLOR_CODES.entries()];
+for (const [key, value] of ORIGINAL_COLOR_CODES) {
+    const invertedKey = key + " (inverted)";
+    const invertedValue = {
+        activeBackground: value.borderColor,
+        activeForeground: value.activeForeground,
+        borderColor: value.activeBackground,
+        inactiveBackground: value.inactiveForeground,
+        inactiveForeground: value.inactiveBackground,
+    };
+    COLOR_CODES.set(invertedKey, invertedValue);
+}
+
 function hashStr(str: string): number {
     var hash = 0;
     for (var i = 0; i < str.length; i++) {

@@ -64,3 +64,7 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 
 - Rename Washington Commanders color scheme
 - Extend the open github page command to open the active file and line
+
+## 0.3.3
+
+- Add inverted color schemes
