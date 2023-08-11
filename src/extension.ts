@@ -165,16 +165,26 @@ class WorkbenchColors {
     "titleBar.border": string;
     "titleBar.inactiveBackground": string;
     "titleBar.inactiveForeground": string;
+    "statusBar.background": string;
+    "statusBar.foreground": string;
+    "statusBar.border": string;
 
     constructor(selectedColor: color.ColorCode) {
+        // *** Activity bar is the left hand side bar
         this["activityBar.background"] = selectedColor.activeBackground;
         this["activityBar.foreground"] = selectedColor.activeForeground;
         this["activityBar.border"] = selectedColor.borderColor;
+        // *** Title bar is the top bar with the title in it
         this["titleBar.activeBackground"] = selectedColor.activeBackground;
         this["titleBar.activeForeground"] = selectedColor.activeForeground;
         this["titleBar.border"] = selectedColor.borderColor;
         this["titleBar.inactiveBackground"] = selectedColor.inactiveBackground;
-        this["titleBar.inactiveForeground"] = selectedColor.inactiveForeground;
+        // We use the active background color for the inactive foreground
+        this["titleBar.inactiveForeground"] = selectedColor.activeBackground;
+        // *** Status bar is the bottom bar
+        this["statusBar.background"] = selectedColor.activeBackground;
+        this["statusBar.foreground"] = selectedColor.activeForeground;
+        this["statusBar.border"] = selectedColor.borderColor;
     }
 }
 

@@ -4,7 +4,8 @@
 	"description": "VSCode git projects management utility",
 	"publisher": "ollij93",
 	"repository": "https://github.com/ollij93/vscode-projects.git",
-	"version": "0.3.3",
+	"version": "0.3.4",
+	"icon": "images/icon.png",
 	"engines": {
 		"vscode": "^1.52.0"
 	},

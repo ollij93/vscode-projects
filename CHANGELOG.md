@@ -68,3 +68,8 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 ## 0.3.3
 
 - Add inverted color schemes
+
+## 0.3.4
+
+- Add the project icon
+- Color the status bar along with the title and activity bar
