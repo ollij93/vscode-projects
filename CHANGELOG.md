@@ -73,3 +73,7 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 
 - Add the project icon
 - Color the status bar along with the title and activity bar
+
+## 0.3.5
+
+- Add pagination support for github allowing >30 repos to be supported

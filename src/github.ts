@@ -94,18 +94,50 @@ export module github {
         method: Method = "GET",
         data?: string
     ): Promise<T> {
-        return axios.request<T>({
+
+        const headers = {
             /* eslint-disable @typescript-eslint/naming-convention */
+            authorization: "token " + token,
+            "User-Agent": "other",
+            Accept: "application/vnd.github.baptiste-preview+json",
+            /* eslint-enable */
+        };
+        const origReq = axios.request<T>({
             method: method,
             url: `https://${host}${path}`,
-            headers: {
-                authorization: "token " + token,
-                "User-Agent": "other",
-                Accept: "application/vnd.github.baptiste-preview+json",
-            },
+            headers: headers,
             data: data,
-            /* eslint-enable */
-        }).then((resp) => resp.data);
+        });
+        const paginationloop = (currData: any, req: any) =>
+            req.then((resp: any) => {
+                var nextLink = null;
+                if ("link" in resp.headers) {
+                    const links = resp.headers["link"].split(",");
+                    const next = links.find((link: string) => link.endsWith('rel="next"'))
+                    if (next !== undefined) {
+                        nextLink = next.split(";")[0].trim().slice(1, -1);
+                    }
+                }
+                var newData;
+                if (currData === null) {
+                    newData = resp.data;
+                } else {
+                    newData = currData.concat(resp.data);
+                }
+
+                if (nextLink === null) {
+                    return newData;
+                } else {
+                    return paginationloop(newData, axios.request<T>({
+                        method: method,
+                        url: nextLink,
+                        headers: headers,
+                        data: data,
+                    }));
+                }
+            });
+
+        return paginationloop(null, origReq);
     }
 
     export async function getRepos(token: string, host: string): Promise<Array<Repo>> {
