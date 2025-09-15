@@ -4,7 +4,7 @@
 	"description": "VSCode git projects management utility",
 	"publisher": "ollij93",
 	"repository": "https://github.com/ollij93/vscode-projects.git",
-	"version": "0.3.5",
+	"version": "0.3.6",
 	"icon": "images/icon.png",
 	"engines": {
 		"vscode": "^1.52.0"
@@ -59,6 +59,44 @@
 					"type": "string",
 					"default": "",
 					"description": "Path to a JSON file mapping github API as given in githubServerAPIs to github access token."
+				},
+				"vscode-projects.customColorCodes": {
+					"type": "array",
+					"default": [],
+					"description": "A list of custom color codes to be used for projects.",
+					"items": {
+						"type": "object",
+						"title": "Custom Color Code",
+						"required": [
+							"name",
+							"activeBackground",
+							"activeForeground",
+							"borderColor",
+							"inactiveBackground"
+						],
+						"properties": {
+							"name": {
+								"type": "string",
+								"description": "The name of the color theme."
+							},
+							"activeBackground": {
+								"type": "string",
+								"description": "The active background color (hex code)."
+							},
+							"activeForeground": {
+								"type": "string",
+								"description": "The active foreground color (hex code)."
+							},
+							"borderColor": {
+								"type": "string",
+								"description": "The border color (hex code)."
+							},
+							"inactiveBackground": {
+								"type": "string",
+								"description": "The inactive background color (hex code)."
+							}
+						}
+					}
 				}
 			}
 		}
@@ -77,14 +115,16 @@
 		"@types/glob": "^7.1.3",
 		"@types/mocha": "^8.0.4",
 		"@types/node": "^12.19.15",
+		"@types/sinon": "^17.0.4",
 		"@types/vscode": "^1.52.0",
 		"@typescript-eslint/eslint-plugin": "^4.9.0",
 		"@typescript-eslint/parser": "^4.9.0",
+		"@vscode/test-electron": "^1.4.1",
 		"eslint": "^7.15.0",
 		"glob": "^7.1.6",
 		"mocha": "^8.1.3",
-		"typescript": "^4.1.2",
-		"@vscode/test-electron": "^1.4.1"
+		"sinon": "^21.0.0",
+		"typescript": "^4.1.2"
 	},
 	"dependencies": {
 		"axios": "^0.21.4",

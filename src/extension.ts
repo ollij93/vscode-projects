@@ -206,7 +206,6 @@ async function createCodeWorkspace(
     // Set up the color selector and wait for a choice
     const colorItems = color.getItems(repo.name);
     console.log(colorItems);
-    console.log(color.COLOR_CODES);
     const options: vscode.QuickPickOptions = {
         placeHolder: "Select Color Theme",
     };
@@ -451,6 +450,14 @@ async function updateProjectColors() {
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    color.loadColorCodes();
+
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration('vscode-projects.customColorCodes')) {
+            color.loadColorCodes();
+        }
+    }));
+
     // The command has been defined in the package.json file
     // Now provide the implementation of the command with registerCommand
     // The commandId parameter must match the command field in package.json

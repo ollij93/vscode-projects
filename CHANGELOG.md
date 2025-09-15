@@ -77,3 +77,7 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 ## 0.3.5
 
 - Add pagination support for github allowing >30 repos to be supported
+
+## 0.3.6
+
+- Add configurable color codes
