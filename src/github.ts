@@ -63,6 +63,12 @@ export module github {
     export function clone(repo: Repo, root: string): Promise<string> {
         let checkout: string = [root, repo.name].join(path.sep);
         return new Promise((resolve, reject) => {
+            if (fs.existsSync(checkout)) {
+                console.log(`Directory ${checkout} already exists.`);
+                resolve(checkout);
+                return;
+            }
+
             let msg: string = `Cloning ${repo.ssh_url} to ${checkout} ...`;
             console.log(msg);
             vscode.window.setStatusBarMessage(msg);

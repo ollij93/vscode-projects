@@ -81,3 +81,7 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 ## 0.3.6
 
 - Add configurable color codes
+
+## 0.3.7
+
+- Fix failure to clone repositories that already exist locally
