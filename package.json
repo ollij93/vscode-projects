@@ -4,7 +4,7 @@
 	"description": "VSCode git projects management utility",
 	"publisher": "ollij93",
 	"repository": "https://github.com/ollij93/vscode-projects.git",
-	"version": "0.3.7",
+	"version": "0.4.0",
 	"icon": "images/icon.png",
 	"engines": {
 		"vscode": "^1.52.0"
@@ -53,7 +53,32 @@
 					"default": [
 						"api.github.com"
 					],
-					"description": "Specifies the set of github server APIs to search for projects."
+					"description": "Specifies the set of github server APIs to search for projects.",
+					"items": {
+						"oneOf": [
+							{
+								"type": "string"
+							},
+							{
+								"type": "object",
+								"properties": {
+									"host": {
+										"type": "string"
+									},
+									"include_starred": {
+										"type": "boolean",
+										"default": true
+									},
+									"affiliations": {
+										"type": "array",
+										"items": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						]
+					}
 				},
 				"vscode-projects.githubKeysPath": {
 					"type": "string",

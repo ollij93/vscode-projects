@@ -85,3 +85,8 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 ## 0.3.7
 
 - Fix failure to clone repositories that already exist locally
+
+## 0.4.0
+
+- Allow configuration of which repo affiliations to include for configured repos
+- Include starred repos when searching for repos

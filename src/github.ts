@@ -19,10 +19,27 @@ export module github {
     }
     /* eslint-enable */
 
+    export interface ApiConfig {
+        host: string;
+        affiliations: string[];
+        include_starred: boolean;
+    }
+
     export function getAPIs(
         config: vscode.WorkspaceConfiguration
-    ): Array<string> {
-        return config.get("githubServerAPIs") || [];
+    ): Array<ApiConfig> {
+        const serverConfigs = config.get<Array<string | { host: string; affiliations?: string[], include_starred?: boolean }>>("githubServerAPIs", []);
+        return serverConfigs.map(cfg => {
+            if (typeof cfg === 'string') {
+                return { host: cfg, affiliations: ['owner', 'collaborator'], include_starred: true };
+            } else {
+                return {
+                    host: cfg.host,
+                    affiliations: cfg.affiliations || ['owner', 'collaborator'],
+                    include_starred: cfg.include_starred === undefined ? true : cfg.include_starred
+                };
+            }
+        });
     }
 
     export function getToken(
@@ -113,6 +130,9 @@ export module github {
             url: `https://${host}${path}`,
             headers: headers,
             data: data,
+            params: {
+                per_page: 100,
+            },
         });
         const paginationloop = (currData: any, req: any) =>
             req.then((resp: any) => {
@@ -139,6 +159,9 @@ export module github {
                         url: nextLink,
                         headers: headers,
                         data: data,
+                        params: {
+                            per_page: 100,
+                        },
                     }));
                 }
             });
@@ -146,8 +169,32 @@ export module github {
         return paginationloop(null, origReq);
     }
 
-    export async function getRepos(token: string, host: string): Promise<Array<Repo>> {
-        return makeApiRequest<Repo[]>(token, host, "/user/repos?visibility=all");
+    export async function getRepos(
+        token: string,
+        host: string,
+        apiConfig: ApiConfig
+    ): Promise<Array<Repo>> {
+        const affiliationQuery = apiConfig.affiliations.join(",");
+        let affiliatedRepos = makeApiRequest<Repo[]>(
+            token,
+            host,
+            `/user/repos?visibility=all&affiliation=${affiliationQuery}`
+        );
+
+        if (apiConfig.include_starred) {
+            let starredRepos = makeApiRequest<Repo[]>(token, host, "/user/starred");
+            return Promise.all([affiliatedRepos, starredRepos]).then(([affiliated, starred]) => {
+                const allRepos = [...affiliated, ...starred];
+                const uniqueRepos = allRepos.filter((repo, index, self) =>
+                    index === self.findIndex((r) => (
+                        r.full_name === repo.full_name
+                    ))
+                );
+                return uniqueRepos;
+            });
+        } else {
+            return affiliatedRepos;
+        }
     }
 
     export async function createRepo(

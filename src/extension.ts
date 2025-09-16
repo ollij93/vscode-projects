@@ -279,9 +279,9 @@ async function getAllReposMap(
     config: vscode.WorkspaceConfiguration
 ): Promise<Map<string, github.Repo>> {
     return new Promise((resolve, reject) => {
-        let promisemap = github.getAPIs(config).map((host) => {
-            let token = github.getToken(config, host);
-            return github.getRepos(token, host);
+        let promisemap = github.getAPIs(config).map((apiConfig) => {
+            let token = github.getToken(config, apiConfig.host);
+            return github.getRepos(token, apiConfig.host, apiConfig);
         });
         Promise.allSettled(promisemap).then(
             // Remap from array of arrays of repos to a map
@@ -353,11 +353,16 @@ async function userSelectTemplate(
 async function userInputNewRepoOptions(
     config: vscode.WorkspaceConfiguration
 ): Promise<[string, string, github.Repo?]> {
-    let host = await utils.showQuickPick(github.getAPIs(config), "Select github api");
-    let token = github.getToken(config, host);
-    let repos = await github.getRepos(token, host);
+    const apiConfigs = github.getAPIs(config);
+    const host = await utils.showQuickPick(apiConfigs.map(c => c.host), "Select github api");
+    const apiConfig = apiConfigs.find(c => c.host === host);
+    if (!apiConfig) {
+        throw new Error("Could not find a valid API configuration for the selected host.");
+    }
+    let token = github.getToken(config, apiConfig.host);
+    let repos = await github.getRepos(token, apiConfig.host, apiConfig);
     let name = await userInputRepoName(repos);
-    return await userSelectTemplate(host, repos, name);
+    return await userSelectTemplate(apiConfig.host, repos, name);
 }
 
 // ============================================================================
