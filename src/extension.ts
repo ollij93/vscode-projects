@@ -6,6 +6,7 @@ import * as vscode from "vscode";
 import * as color from "./color";
 import { github } from "./github";
 import * as utils from "./utils";
+import { config } from "process";
 
 /**
  * Get the configured root location for project repositories.
@@ -264,10 +265,67 @@ function mapFromReposArray(repos: github.Repo[]): Map<string, github.Repo> {
     let ret: Map<string, github.Repo> = new Map();
 
     repos.forEach((repo) => {
-        ret.set(repo.full_name, repo);
+        ret.set(repo.name, repo);
     });
 
     return ret;
+}
+
+/**
+ * Get a map of string name to repo object for all locally available projects.
+ *
+ * @returns A promise that resolves with this map.
+ */
+async function getLocalProjects(
+    config: vscode.WorkspaceConfiguration
+): Promise<Map<string, github.Repo>> {
+    return new Promise((resolve, reject) => {
+        let wsLocation = getWSLocation(config);
+        let repos: github.Repo[] = [];
+
+        if (fs.existsSync(wsLocation)) {
+            fs.readdirSync(wsLocation, { withFileTypes: true })
+                .filter((x: fs.Dirent) => x.name.endsWith(".code-workspace"))
+                .forEach((file: fs.Dirent) => {
+                    let wsFile = path.join(wsLocation, file.name);
+                    let wsContent = fs.readFileSync(wsFile, "utf8");
+                    let workspace = JSON.parse(wsContent);
+                    let projPath = workspace.folders[0].path;
+
+                    try {
+                        let gitConfig = fs.readFileSync(
+                            path.join(projPath, ".git", "config"),
+                            "utf8"
+                        );
+                        let remoteUrl = /^\s*url\s*=\s*(.*)$/m.exec(gitConfig);
+                        if (remoteUrl) {
+                            let url = remoteUrl[1];
+                            let projName = /([^/]+)\.git$/.exec(url);
+                            let ownerName = /:(.*)\/[^/]+\.git$/.exec(url);
+                            if (projName && ownerName) {
+                                let repo: github.Repo = {
+                                    name: projName[1],
+                                    full_name: ownerName[1] + "/" + projName[1],
+                                    ssh_url: url,
+                                    owner: {
+                                        login: ownerName[1],
+                                        type: "User",
+                                    },
+                                    is_template: false,
+                                    isLocal: true,
+                                };
+                                repos.push(repo);
+                            }
+                        }
+                    } catch (error) {
+                        // Ignore... The git config file simply doesn't exist in this
+                        // directory.
+                    }
+                });
+        }
+
+        resolve(mapFromReposArray(repos));
+    });
 }
 
 /**
@@ -275,42 +333,24 @@ function mapFromReposArray(repos: github.Repo[]): Map<string, github.Repo> {
  *
  * @returns A promise that resolves with this map.
  */
-async function getAllReposMap(
+async function getAllReposMaps(
     config: vscode.WorkspaceConfiguration
-): Promise<Map<string, github.Repo>> {
+): Promise<Map<string, Map<string, github.Repo>>> {
     return new Promise((resolve, reject) => {
-        let promisemap = github.getAPIs(config).map((apiConfig) => {
-            let token = github.getToken(config, apiConfig.host);
-            return github.getRepos(token, apiConfig.host, apiConfig);
+        let ret: Map<string, Map<string, github.Repo>> = new Map();
+        Promise.all([
+            getLocalProjects(config).then((local_map) => {
+                ret.set("Local", local_map);
+            }),
+            ...github.getAPIs(config).map((apiConfig) => {
+                let token = github.getToken(config, apiConfig.host);
+                return github.getRepos(token, apiConfig.host, apiConfig).then(mapFromReposArray).then((map) => {
+                    ret.set(apiConfig.host, map);
+                })
+            })
+        ]).then(() => {
+            resolve(ret);
         });
-        Promise.allSettled(promisemap).then(
-            // Remap from array of arrays of repos to a map
-            (apiRepos: PromiseSettledResult<github.Repo[]>[]) => {
-                console.log(apiRepos);
-                let maps: Map<string, github.Repo>[] = [];
-
-                apiRepos.forEach((result) => {
-                    if (result.status === "fulfilled") {
-                        maps.push(mapFromReposArray(result.value));
-                    }
-                });
-
-                let ret: Map<string, github.Repo> = new Map();
-
-                maps.forEach((map) => {
-                    [...map.entries()].forEach((val) => {
-                        ret.set(...val);
-                    });
-                });
-
-                if (ret.size > 0) {
-                    resolve(ret);
-                } else {
-                    vscode.window.showErrorMessage("Failed to find any projects");
-                    reject();
-                }
-            }
-        );
     });
 }
 
@@ -336,7 +376,7 @@ async function userSelectTemplate(
         choices.set("empty", undefined);
         let repo = undefined;
         if (choices) {
-            repo = await utils.quickPickFromMap(choices, "Select template").then();
+            repo = await utils.quickPickFromMap(choices, "Select template", true, (value: github.Repo | undefined) => value ? value.full_name : "").then();
         }
         return [host, name, repo];
     } catch {
@@ -376,11 +416,53 @@ async function userInputNewRepoOptions(
  */
 async function selectProject() {
     let config = vscode.workspace.getConfiguration("vscode-projects");
-    await getAllReposMap(config)
-        .then((x) => { return utils.quickPickFromMap(x, "Select project"); })
+    await getAllReposMaps(config)
+        .then((repoMaps) => {
+            return utils.quickPickFromMaps(repoMaps, "Select project", true, (value: github.Repo) => value.full_name);
+        })
         .then((x) => { if (x === undefined) { throw Error("No project selected."); } return (x); })
         .then((x) => { return obtainCodeWorkspace(config, x); })
         .then(openInThisWindow)
+        .catch(console.error);
+}
+
+/**
+ * Command that runs for the Delete Project action.
+ * 
+ * Has the user select a local repo and then removes both the repo folder and
+ * the code-workspace file.
+ */
+async function deleteProject() {
+    let config = vscode.workspace.getConfiguration("vscode-projects");
+    await getLocalProjects(config)
+        .then((repoMap) => {
+            return utils.quickPickFromMap(repoMap, "Select project", true, (value: github.Repo) => value.full_name);
+        })
+        .then((x) => { if (x === undefined) { throw Error("No project selected."); } return (x); })
+        .then((x: github.Repo) => {
+            // Delete the code workspace file if it exists
+            let codeWsPath = getCodeWorkspacePath(config, x);
+            if (fs.existsSync(codeWsPath)) {
+                fs.unlinkSync(codeWsPath);
+            }
+            return x;
+        })
+        .then((x: github.Repo) => {
+            // Find the existing repo directory
+            let rootLocations = getRootLocations(config);
+            let repoPath: string | undefined = undefined;
+            for (let rootLocation of rootLocations) {
+                if (fs.readdirSync(rootLocation).includes(x.name)) {
+                    repoPath = rootLocation + "/" + x.name;
+                    break;
+                }
+            }
+
+            if (repoPath !== undefined) {
+                // Delete the repo directory using fs
+                fs.rmdirSync(repoPath, { recursive: true });
+            }
+        })
         .catch(console.error);
 }
 
@@ -469,6 +551,12 @@ export function activate(context: vscode.ExtensionContext) {
     let disposable = vscode.commands.registerCommand(
         "vscode-projects.selectproject",
         selectProject
+    );
+    context.subscriptions.push(disposable);
+    
+    disposable = vscode.commands.registerCommand(
+        "vscode-projects.deleteproject",
+        deleteProject
     );
     context.subscriptions.push(disposable);
 

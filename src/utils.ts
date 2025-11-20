@@ -8,7 +8,8 @@ export interface QuickPickItemsWithDefault {
 export async function quickPickFromMap<T>(
     map: Map<string, T>,
     placeHolder: string,
-    sort = true
+    sort = true,
+    description_cb?: (element: T) => string
 ): Promise<T | undefined> {
     let keys: Array<string> = Array.from(map.keys());
     if (sort) {
@@ -17,19 +18,63 @@ export async function quickPickFromMap<T>(
 
     return new Promise((resolve, reject) => {
         let options: vscode.QuickPickOptions = { placeHolder: placeHolder };
-        vscode.window.showQuickPick(keys, options).then(
-            (choice: string | undefined) => {
+        vscode.window.showQuickPick(
+            keys.map(key => ({
+                label: key,
+                description: description_cb ? description_cb(map.get(key)!) : undefined
+            })), options).then(
+                (choice: vscode.QuickPickItem | undefined) => {
+                    // Ignore undefined
+                    if (choice === undefined) {
+                        throw Error("No choice made.");
+                    }
+                    resolve(map.get(choice.label));
+                });
+    });
+}
+
+export async function quickPickFromMaps<T>(
+    maps: Map<string, Map<string, T>>,
+    placeHolder: string,
+    sortEach = true,
+    description_cb?: (element: T) => string
+): Promise<T | undefined> {
+    let items: vscode.QuickPickItem[] = [];
+    [...maps.entries()].forEach(([label, map]) => {
+        items.push({ label: label, kind: vscode.QuickPickItemKind.Separator });
+        let keys = [...map.keys()];
+        if (sortEach) {
+            keys = keys.sort();
+        }
+        items.push(...[...map.entries()].map((entry) => {
+            let key: string = entry[0];
+            let value: T = entry[1];
+            return {
+                label: key,
+                description: description_cb ? description_cb(value) : undefined
+            };
+        }));
+    });
+
+    return new Promise((resolve, reject) => {
+        let options: vscode.QuickPickOptions = { placeHolder: placeHolder };
+        vscode.window.showQuickPick(items, options).then(
+            (choice: vscode.QuickPickItem | undefined) => {
                 // Ignore undefined
                 if (choice === undefined) {
                     throw Error("No choice made.");
                 }
-                resolve(map.get(choice));
+                maps.forEach((map, _) => {
+                    if (map.has(choice.label)) {
+                        resolve(map.get(choice.label));
+                    }
+                })
             });
     });
 }
 
 export async function showQuickPick(items: string[], placeHolder: string): Promise<string> {
-    let options: vscode.QuickPickOptions = {placeHolder: placeHolder};
+    let options: vscode.QuickPickOptions = { placeHolder: placeHolder };
     let item = await vscode.window.showQuickPick(items, options);
     if (item === undefined) {
         throw new Error("No item selected");

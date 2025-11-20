@@ -23,6 +23,10 @@
 				"title": "Ollij93: Select Project"
 			},
 			{
+				"command": "vscode-projects.deleteproject",
+				"title": "Ollij93: Delete Project"
+			},
+			{
 				"command": "vscode-projects.newproject",
 				"title": "Ollij93: New Project"
 			},

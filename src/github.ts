@@ -16,6 +16,7 @@ export module github {
             type: string;
         };
         is_template: boolean;
+        isLocal?: boolean;
     }
     /* eslint-enable */
 
