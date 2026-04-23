@@ -67,7 +67,11 @@ export module github {
         try {
             let data = fs.readFileSync(path);
             let obj = JSON.parse(data.toString());
-            return (obj[host]);
+            let token = obj[host];
+            if (typeof token !== "string" || token.trim() === "") {
+                throw new Error(`No GitHub token configured for ${host}`);
+            }
+            return token;
         } catch (error) {
             if (error instanceof SyntaxError) {
                 vscode.window.showErrorMessage(error.toString());

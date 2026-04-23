@@ -94,3 +94,9 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 ## 0.4.1
 
 - Add support for pasting GitHub repository URLs when selecting projects
+
+## 0.4.2
+
+- Skip invalid workspace files when loading local projects
+- Continue loading projects when a configured GitHub API host fails authentication
+- Cancel project color updates cleanly when the picker is dismissed

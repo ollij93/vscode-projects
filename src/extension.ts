@@ -288,9 +288,16 @@ async function getLocalProjects(
                 .filter((x: fs.Dirent) => x.name.endsWith(".code-workspace"))
                 .forEach((file: fs.Dirent) => {
                     let wsFile = path.join(wsLocation, file.name);
-                    let wsContent = fs.readFileSync(wsFile, "utf8");
-                    let workspace = JSON.parse(wsContent);
-                    let projPath = workspace.folders[0].path;
+                    let projPath: string;
+
+                    try {
+                        let wsContent = fs.readFileSync(wsFile, "utf8");
+                        let workspace = JSON.parse(wsContent);
+                        projPath = workspace.folders[0].path;
+                    } catch (error) {
+                        console.error(`Skipping invalid workspace file: ${wsFile}`, error);
+                        return;
+                    }
 
                     try {
                         let gitConfig = fs.readFileSync(
@@ -336,17 +343,25 @@ async function getLocalProjects(
 async function getAllReposMaps(
     config: vscode.WorkspaceConfiguration
 ): Promise<Map<string, Map<string, github.Repo>>> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         let ret: Map<string, Map<string, github.Repo>> = new Map();
         Promise.all([
             getLocalProjects(config).then((local_map) => {
                 ret.set("Local", local_map);
             }),
             ...github.getAPIs(config).map((apiConfig) => {
-                let token = github.getToken(config, apiConfig.host);
-                return github.getRepos(token, apiConfig.host, apiConfig).then(mapFromReposArray).then((map) => {
-                    ret.set(apiConfig.host, map);
-                })
+                return Promise.resolve()
+                    .then(() => {
+                        let token = github.getToken(config, apiConfig.host);
+                        return github.getRepos(token, apiConfig.host, apiConfig);
+                    })
+                    .then(mapFromReposArray)
+                    .then((map) => {
+                        ret.set(apiConfig.host, map);
+                    })
+                    .catch((error) => {
+                        console.error(`Failed to load repos from ${apiConfig.host}`, error);
+                    });
             })
         ]).then(() => {
             resolve(ret);
@@ -635,7 +650,10 @@ async function updateProjectColors() {
     const options: vscode.QuickPickOptions = {
         placeHolder: "Select Color Theme",
     };
-    const selected = await vscode.window.showQuickPick(colorItems.items, options) || colorItems.default;
+    const selected = await vscode.window.showQuickPick(colorItems.items, options);
+    if (selected === undefined) {
+        return;
+    }
     const selectedColor = color.processSelected(selected);
     await config.update("workbench.colorCustomizations", new WorkbenchColors(selectedColor), vscode.ConfigurationTarget.Workspace);
 }
