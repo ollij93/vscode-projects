@@ -205,13 +205,7 @@ async function createCodeWorkspace(
     repo: github.Repo
 ): Promise<string> {
     // Set up the color selector and wait for a choice
-    const colorItems = color.getItems(repo.name);
-    console.log(colorItems);
-    const options: vscode.QuickPickOptions = {
-        placeHolder: "Select Color Theme",
-    };
-    const selected = await vscode.window.showQuickPick(colorItems.items, options) || colorItems.default;
-    const selectedColor = color.processSelected(selected);
+    const selectedColor = await selectProjectColor(repo.name) || color.getDefaultColor(repo.name);
 
     // Create and then open the .code-workspace file
     let codeWsPath = getCodeWorkspacePath(config, repo);
@@ -233,6 +227,75 @@ async function createCodeWorkspace(
     }
     fs.writeFileSync(codeWsPath, JSON.stringify(codeWsContent));
     return codeWsPath;
+}
+
+function canPreviewColorsInWorkspace(): boolean {
+    return (
+        vscode.workspace.workspaceFile !== undefined ||
+        (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0)
+    );
+}
+
+async function selectProjectColor(
+    projectName: string,
+    persistSelection = false
+): Promise<color.ColorCode | undefined> {
+    if (!canPreviewColorsInWorkspace()) {
+        return color.selectColor(projectName);
+    }
+
+    const workbenchConfig = vscode.workspace.getConfiguration();
+    const originalColors = workbenchConfig.get("workbench.colorCustomizations");
+
+    const restoreOriginalColors = async () => {
+        await workbenchConfig.update(
+            "workbench.colorCustomizations",
+            originalColors,
+            vscode.ConfigurationTarget.Workspace
+        );
+    };
+
+    const previewColor = async (selectedColor: color.ColorCode | undefined) => {
+        if (selectedColor === undefined) {
+            await restoreOriginalColors();
+            return;
+        }
+
+        await workbenchConfig.update(
+            "workbench.colorCustomizations",
+            new WorkbenchColors(selectedColor),
+            vscode.ConfigurationTarget.Workspace
+        );
+    };
+
+    try {
+        const selectedColor = await color.selectColor(
+            projectName,
+            "Select Color Theme",
+            undefined,
+            previewColor
+        );
+
+        if (selectedColor === undefined) {
+            await restoreOriginalColors();
+            return undefined;
+        }
+
+        if (persistSelection) {
+            await workbenchConfig.update(
+                "workbench.colorCustomizations",
+                new WorkbenchColors(selectedColor),
+                vscode.ConfigurationTarget.Workspace
+            );
+        } else {
+            await restoreOriginalColors();
+        }
+
+        return selectedColor;
+    } catch (error) {
+        await restoreOriginalColors();
+        throw error;
+    }
 }
 
 /**
@@ -646,16 +709,10 @@ async function updateProjectColors() {
     const projname = (/\[(.*)\]/.exec(title) || ["", ""])[1];
 
     // Set up the color selector and wait for a choice
-    const colorItems = color.getItems(projname);
-    const options: vscode.QuickPickOptions = {
-        placeHolder: "Select Color Theme",
-    };
-    const selected = await vscode.window.showQuickPick(colorItems.items, options);
-    if (selected === undefined) {
+    const selectedColor = await selectProjectColor(projname, true);
+    if (selectedColor === undefined) {
         return;
     }
-    const selectedColor = color.processSelected(selected);
-    await config.update("workbench.colorCustomizations", new WorkbenchColors(selectedColor), vscode.ConfigurationTarget.Workspace);
 }
 
 // ============================================================================

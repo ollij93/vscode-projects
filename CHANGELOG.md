@@ -100,3 +100,6 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 - Skip invalid workspace files when loading local projects
 - Continue loading projects when a configured GitHub API host fails authentication
 - Cancel project color updates cleanly when the picker is dismissed
+- Add grouped color themes with built-in NFL, Basic, and Dracula collections
+- Preview project colors while navigating the color picker
+- Add Back navigation within grouped color pickers

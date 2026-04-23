@@ -92,39 +92,93 @@
 				"vscode-projects.customColorCodes": {
 					"type": "array",
 					"default": [],
-					"description": "A list of custom color codes to be used for projects.",
+					"description": "A list of custom color codes or groups to be used for projects.",
 					"items": {
-						"type": "object",
-						"title": "Custom Color Code",
-						"required": [
-							"name",
-							"activeBackground",
-							"activeForeground",
-							"borderColor",
-							"inactiveBackground"
-						],
-						"properties": {
-							"name": {
-								"type": "string",
-								"description": "The name of the color theme."
+						"oneOf": [
+							{
+								"type": "object",
+								"title": "Custom Color Code",
+								"required": [
+									"name",
+									"activeBackground",
+									"activeForeground",
+									"borderColor",
+									"inactiveBackground"
+								],
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "The name of the color theme."
+									},
+									"activeBackground": {
+										"type": "string",
+										"description": "The active background color (hex code)."
+									},
+									"activeForeground": {
+										"type": "string",
+										"description": "The active foreground color (hex code)."
+									},
+									"borderColor": {
+										"type": "string",
+										"description": "The border color (hex code)."
+									},
+									"inactiveBackground": {
+										"type": "string",
+										"description": "The inactive background color (hex code)."
+									}
+								}
 							},
-							"activeBackground": {
-								"type": "string",
-								"description": "The active background color (hex code)."
-							},
-							"activeForeground": {
-								"type": "string",
-								"description": "The active foreground color (hex code)."
-							},
-							"borderColor": {
-								"type": "string",
-								"description": "The border color (hex code)."
-							},
-							"inactiveBackground": {
-								"type": "string",
-								"description": "The inactive background color (hex code)."
+							{
+								"type": "object",
+								"title": "Custom Color Group",
+								"required": [
+									"name",
+									"colors"
+								],
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "The name of the color group."
+									},
+									"colors": {
+										"type": "array",
+										"description": "The color codes available within this group.",
+										"items": {
+											"type": "object",
+											"required": [
+												"name",
+												"activeBackground",
+												"activeForeground",
+												"borderColor",
+												"inactiveBackground"
+											],
+											"properties": {
+												"name": {
+													"type": "string",
+													"description": "The name of the color theme."
+												},
+												"activeBackground": {
+													"type": "string",
+													"description": "The active background color (hex code)."
+												},
+												"activeForeground": {
+													"type": "string",
+													"description": "The active foreground color (hex code)."
+												},
+												"borderColor": {
+													"type": "string",
+													"description": "The border color (hex code)."
+												},
+												"inactiveBackground": {
+													"type": "string",
+													"description": "The inactive background color (hex code)."
+												}
+											}
+										}
+									}
+								}
 							}
-						}
+						]
 					}
 				}
 			}
