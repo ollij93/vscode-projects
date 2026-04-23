@@ -11,12 +11,14 @@ suite('Color Test Suite', () => {
     interface FakeQuickPick extends vscode.QuickPick<vscode.QuickPickItem> {
         triggerActive(items: vscode.QuickPickItem[]): void;
         triggerAccept(): void;
+        triggerValue(value: string): void;
     }
 
     function createFakeQuickPick(): FakeQuickPick {
         const activeCallbacks: Array<(items: readonly vscode.QuickPickItem[]) => void> = [];
         const acceptCallbacks: Array<() => void> = [];
         const hideCallbacks: Array<() => void> = [];
+        const valueCallbacks: Array<(value: string) => void> = [];
 
         const quickPick = {
             items: [] as readonly vscode.QuickPickItem[],
@@ -61,7 +63,8 @@ suite('Color Test Suite', () => {
             onDidChangeSelection() {
                 return new vscode.Disposable(() => undefined);
             },
-            onDidChangeValue() {
+            onDidChangeValue(callback: (value: string) => void) {
+                valueCallbacks.push(callback);
                 return new vscode.Disposable(() => undefined);
             },
             onDidTriggerButton() {
@@ -76,6 +79,10 @@ suite('Color Test Suite', () => {
             },
             triggerAccept() {
                 acceptCallbacks.forEach((callback) => callback());
+            },
+            triggerValue(value: string) {
+                this.value = value;
+                valueCallbacks.forEach((callback) => callback(value));
             },
         };
 
@@ -232,6 +239,31 @@ suite('Color Test Suite', () => {
 
         const selectedColor = await color.selectColor("");
         assert.strictEqual(selectedColor, undefined);
+    });
+
+    test('Test selectColor search expands grouped entries at the top level', async () => {
+        getConfigurationStub.withArgs('vscode-projects').returns({
+            get: (key: string) => []
+        } as vscode.WorkspaceConfiguration);
+        color.loadColorCodes();
+
+        quickPickPlans.push((quickPick) => {
+            assert.strictEqual(quickPick.items.find(item => item.label === 'Seattle Seahawks'), undefined);
+            quickPick.triggerValue('seahawks');
+
+            const selectedItem = quickPick.items.find(item => item.label === 'Seattle Seahawks');
+            if (!selectedItem) {
+                throw new Error('Missing Seattle Seahawks item');
+            }
+            assert.strictEqual(selectedItem.description, 'NFL');
+            quickPick.triggerActive([selectedItem]);
+            quickPick.selectedItems = [selectedItem];
+            quickPick.triggerAccept();
+        });
+
+        const selectedColor = await color.selectColor("");
+        assert.deepStrictEqual(selectedColor, color.DEFAULT_COLOR_CODES.get("Seattle Seahawks"));
+        assert.strictEqual(createQuickPickStub.callCount, 1);
     });
 
     test('Test selectColor can go back to the parent group list', async () => {

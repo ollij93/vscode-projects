@@ -270,6 +270,44 @@ function buildQuickPickItems(
     return items;
 }
 
+function buildSearchQuickPickItems(
+    entries: ColorEntry[],
+    excludedColorName?: string,
+    groupPath: string[] = []
+): ColorQuickPickItem[] {
+    const items: ColorQuickPickItem[] = [];
+
+    for (const entry of entries) {
+        if (isColorGroup(entry)) {
+            items.push(
+                ...buildSearchQuickPickItems(
+                    entry.colors,
+                    excludedColorName,
+                    [...groupPath, entry.name]
+                )
+            );
+            continue;
+        }
+
+        if (entry.name === excludedColorName) {
+            continue;
+        }
+
+        items.push({
+            label: entry.name,
+            description: groupPath.join(" / "),
+            color: {
+                activeBackground: entry.activeBackground,
+                activeForeground: entry.activeForeground,
+                borderColor: entry.borderColor,
+                inactiveBackground: entry.inactiveBackground,
+            },
+        });
+    }
+
+    return items;
+}
+
 function groupQuickPickItems(
     entries: ColorEntry[],
     includeBack = false
@@ -298,9 +336,26 @@ function getInitialActiveItem(items: ColorQuickPickItem[]): ColorQuickPickItem |
     return items.find((item) => item.kind !== vscode.QuickPickItemKind.Separator && item.isBack !== true);
 }
 
+function buildRootSearchQuickPickItems(projectName: string): ColorQuickPickItem[] {
+    const defaultColorName = defaultColorCode(projectName);
+    const items: ColorQuickPickItem[] = [
+        {
+            label: defaultColorName,
+            description: "(default)",
+            color: getDefaultColor(projectName),
+        },
+    ];
+
+    items.push(...buildSearchQuickPickItems(CUSTOM_COLOR_ENTRIES, defaultColorName));
+    items.push(...buildSearchQuickPickItems(DEFAULT_COLOR_ENTRIES, defaultColorName));
+
+    return items;
+}
+
 async function selectQuickPickItem(
     items: ColorQuickPickItem[],
     placeHolder: string,
+    searchItems?: ColorQuickPickItem[],
     onPreview?: (color: ColorCode | undefined) => void | Thenable<void>
 ): Promise<ColorQuickPickItem | undefined> {
     return new Promise((resolve) => {
@@ -319,6 +374,7 @@ async function selectQuickPickItem(
 
         quickPick.items = items;
         quickPick.placeholder = placeHolder;
+        quickPick.matchOnDescription = true;
 
         const initialActiveItem = getInitialActiveItem(items);
         if (initialActiveItem !== undefined) {
@@ -336,6 +392,31 @@ async function selectQuickPickItem(
 
             const activeItem = activeItems[0];
             void Promise.resolve(onPreview(activeItem?.color)).catch(console.error);
+        });
+
+        quickPick.onDidChangeValue((value) => {
+            if (searchItems === undefined) {
+                return;
+            }
+
+            const nextItems = value.trim() === "" ? items : searchItems;
+            quickPick.items = nextItems;
+
+            const currentActiveItem = quickPick.activeItems[0];
+            if (currentActiveItem !== undefined && nextItems.includes(currentActiveItem)) {
+                return;
+            }
+
+            const nextActiveItem = getInitialActiveItem(nextItems);
+            if (nextActiveItem === undefined) {
+                return;
+            }
+
+            quickPick.activeItems = [nextActiveItem];
+
+            if (onPreview !== undefined) {
+                void Promise.resolve(onPreview(nextActiveItem.color)).catch(console.error);
+            }
         });
 
         quickPick.onDidAccept(() => {
@@ -496,12 +577,17 @@ export async function selectColor(
     entries?: ColorEntry[],
     onPreview?: (color: ColorCode | undefined) => void | Thenable<void>
 ): Promise<ColorCode | undefined> {
-    const pickerStack: Array<{ items: ColorQuickPickItem[]; placeHolder: string; }> = [
+    const pickerStack: Array<{ items: ColorQuickPickItem[]; placeHolder: string; searchItems?: ColorQuickPickItem[]; }> = [
         {
             items: entries === undefined
                 ? getItems(projectName).items as ColorQuickPickItem[]
                 : groupQuickPickItems(entries, true),
             placeHolder,
+            searchItems: entries === undefined
+                ? buildRootSearchQuickPickItems(projectName)
+                : groupQuickPickItems(entries, true).filter((item) => item.isBack).concat(
+                    buildSearchQuickPickItems(entries)
+                ),
         },
     ];
 
@@ -510,6 +596,7 @@ export async function selectColor(
         const selected = await selectQuickPickItem(
             currentPicker.items,
             currentPicker.placeHolder,
+            currentPicker.searchItems,
             onPreview
         );
 
@@ -526,6 +613,9 @@ export async function selectColor(
             pickerStack.push({
                 items: groupQuickPickItems(selected.colors, true),
                 placeHolder: `Select ${selected.label}`,
+                searchItems: groupQuickPickItems(selected.colors, true).filter((item) => item.isBack).concat(
+                    buildSearchQuickPickItems(selected.colors)
+                ),
             });
             continue;
         }

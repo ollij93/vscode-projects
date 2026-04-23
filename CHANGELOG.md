@@ -103,3 +103,4 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 - Add grouped color themes with built-in NFL, Basic, and Dracula collections
 - Preview project colors while navigating the color picker
 - Add Back navigation within grouped color pickers
+- Search nested color entries from the top level of the color picker
