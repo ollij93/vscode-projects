@@ -410,20 +410,128 @@ async function userInputNewRepoOptions(
 // ============================================================================
 
 /**
+ * Parse a GitHub URL (SSH, HTTPS, or web URL) and convert it to a Repo object.
+ *
+ * Supports formats:
+ * - SSH: git@github.com:owner/repo.git
+ * - HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
+ * - GitHub web: https://github.com/owner/repo
+ *
+ * @param url The git URL to parse.
+ * @returns A Repo object, or null if the URL cannot be parsed.
+ */
+function parseUrlToRepo(url: string): github.Repo | null {
+    url = url.trim();
+
+    // Remove query parameters and fragments
+    url = url.split('?')[0].split('#')[0];
+
+    // Remove trailing .git if present
+    url = url.replace(/\.git$/, "");
+
+    // Remove trailing slashes
+    url = url.replace(/\/+$/, "");
+
+    let owner: string | null = null;
+    let repoName: string | null = null;
+
+    // Handle SSH format: git@github.com:owner/repo
+    const sshMatch = url.match(/^git@github\.com:([^\/]+)\/([^\/]+)$/);
+    if (sshMatch) {
+        owner = sshMatch[1];
+        repoName = sshMatch[2];
+    } else {
+        // Handle HTTPS format: https://github.com/owner/repo or https://github.com/owner/repo.git
+        // Also handles URLs with additional paths like /tree/main
+        const httpsMatch = url.match(/^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)/);
+        if (httpsMatch) {
+            owner = httpsMatch[1];
+            repoName = httpsMatch[2];
+        }
+    }
+
+    if (owner && repoName) {
+        return {
+            name: repoName,
+            full_name: `${owner}/${repoName}`,
+            ssh_url: `git@github.com:${owner}/${repoName}.git`,
+            owner: {
+                login: owner,
+                type: "User",
+            },
+            is_template: false,
+            isLocal: false,
+        };
+    }
+
+    return null;
+}
+
+/**
  * Command that runs for the Select Project action.
  *
  * Has the user select a repo and then opens that repos code workspace file.
+ * Also allows pasting a URL to clone a project that isn't in the loaded list.
  */
 async function selectProject() {
     let config = vscode.workspace.getConfiguration("vscode-projects");
-    await getAllReposMaps(config)
-        .then((repoMaps) => {
-            return utils.quickPickFromMaps(repoMaps, "Select project", true, (value: github.Repo) => value.full_name);
-        })
-        .then((x) => { if (x === undefined) { throw Error("No project selected."); } return (x); })
-        .then((x) => { return obtainCodeWorkspace(config, x); })
-        .then(openInThisWindow)
-        .catch(console.error);
+
+    // First, show option to paste a URL or select from existing projects
+    const urlOption: vscode.QuickPickItem = {
+        label: "$(link) Paste URL to clone",
+        description: "Clone a project from a git URL",
+        detail: "Paste a GitHub URL (SSH, HTTPS, or web URL)"
+    };
+
+    const existingProjectsOption: vscode.QuickPickItem = {
+        label: "$(folder) Select from existing projects",
+        description: "Choose from loaded projects"
+    };
+
+    const initialChoice = await vscode.window.showQuickPick(
+        [urlOption, existingProjectsOption],
+        { placeHolder: "How would you like to select a project?" }
+    );
+
+    if (!initialChoice) {
+        return; // User cancelled
+    }
+
+    if (initialChoice.label === urlOption.label) {
+        // User wants to paste a URL
+        const urlInput = await vscode.window.showInputBox({
+            placeHolder: "Paste git URL (e.g., https://github.com/owner/repo)",
+            prompt: "Enter a git repository URL to clone"
+        });
+
+        if (!urlInput) {
+            return; // User cancelled
+        }
+
+        const repo = parseUrlToRepo(urlInput);
+        if (!repo) {
+            vscode.window.showErrorMessage("Invalid GitHub URL format. Please use SSH, HTTPS, or GitHub web URL format.");
+            return;
+        }
+
+        try {
+            const ws = await obtainCodeWorkspace(config, repo);
+            await openInThisWindow(ws);
+        } catch (error) {
+            console.error(error);
+            vscode.window.showErrorMessage(`Failed to clone or open repository: ${error}`);
+        }
+    } else {
+        // User wants to select from existing projects
+        await getAllReposMaps(config)
+            .then((repoMaps) => {
+                return utils.quickPickFromMaps(repoMaps, "Select project", true, (value: github.Repo) => value.full_name);
+            })
+            .then((x) => { if (x === undefined) { throw Error("No project selected."); } return (x); })
+            .then((x) => { return obtainCodeWorkspace(config, x); })
+            .then(openInThisWindow)
+            .catch(console.error);
+    }
 }
 
 /**

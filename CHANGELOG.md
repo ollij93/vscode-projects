@@ -90,3 +90,7 @@ All notable changes to the "vscode-projects" extension will be documented in thi
 
 - Allow configuration of which repo affiliations to include for configured repos
 - Include starred repos when searching for repos
+
+## 0.4.1
+
+- Add support for pasting GitHub repository URLs when selecting projects
