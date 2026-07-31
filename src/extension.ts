@@ -158,23 +158,38 @@ async function obtainLocalWorkspace(
 }
 
 class WorkbenchColors {
+    // Activity bar (far left) colors
     "activityBar.background": string;
     "activityBar.foreground": string;
     "activityBar.border": string;
+    "activityBarBadge.background": string;
+    "activityBarBadge.foreground": string;
+    // Title bar (top) colors
     "titleBar.activeBackground": string;
     "titleBar.activeForeground": string;
     "titleBar.border": string;
     "titleBar.inactiveBackground": string;
     "titleBar.inactiveForeground": string;
+    "commandCenter.background": string;
+    "commandCenter.foreground": string;
+    "commandCenter.border": string;
+    // Status bar (bottom) colors
     "statusBar.background": string;
     "statusBar.foreground": string;
     "statusBar.border": string;
+    "statusBarItem.focusBorder": string;
+    "statusBarItem.remoteBackground": string;
+    "statusBarItem.remoteForeground": string;
+    // Highlight the selected editor tab
+    "tab.activeBorder": string;
 
     constructor(selectedColor: color.ColorCode) {
         // *** Activity bar is the left hand side bar
         this["activityBar.background"] = selectedColor.activeBackground;
         this["activityBar.foreground"] = selectedColor.activeForeground;
         this["activityBar.border"] = selectedColor.borderColor;
+        this["activityBarBadge.background"] = selectedColor.activeBackground;
+        this["activityBarBadge.foreground"] = selectedColor.activeForeground;
         // *** Title bar is the top bar with the title in it
         this["titleBar.activeBackground"] = selectedColor.activeBackground;
         this["titleBar.activeForeground"] = selectedColor.activeForeground;
@@ -182,10 +197,18 @@ class WorkbenchColors {
         this["titleBar.inactiveBackground"] = selectedColor.inactiveBackground;
         // We use the active background color for the inactive foreground
         this["titleBar.inactiveForeground"] = selectedColor.activeBackground;
+        this["commandCenter.background"] = selectedColor.activeBackground;
+        this["commandCenter.foreground"] = selectedColor.activeForeground;
+        this["commandCenter.border"] = selectedColor.borderColor;
         // *** Status bar is the bottom bar
         this["statusBar.background"] = selectedColor.activeBackground;
         this["statusBar.foreground"] = selectedColor.activeForeground;
         this["statusBar.border"] = selectedColor.borderColor;
+        this["statusBarItem.focusBorder"] = selectedColor.borderColor;
+        this["statusBarItem.remoteBackground"] = selectedColor.activeBackground;
+        this["statusBarItem.remoteForeground"] = selectedColor.activeForeground;
+        // *** Highlight the selected editor tab
+        this["tab.activeBorder"] = selectedColor.borderColor;
     }
 }
 
@@ -216,9 +239,7 @@ async function createCodeWorkspace(
             },
         ],
         settings: {
-            "window.title":
-                `[${repo.name}]` +
-                " ${dirty} ${activeEditorMedium}${separator}${rootName}",
+            "window.title": "${rootName}",
             "workbench.colorCustomizations": new WorkbenchColors(selectedColor),
         },
     };
@@ -693,9 +714,9 @@ function openGitHubPage() {
         let branch = cp.execSync("git rev-parse --abbrev-ref HEAD", options).toString().trim();
         let activePath = vscode.window.activeTextEditor.document.uri.fsPath;
         let activeLine = vscode.window.activeTextEditor.selection.start.line;
-        let relPath = path.relative( wsPath, activePath );
+        let relPath = path.relative(wsPath, activePath);
         console.log(relPath)
-        url = url + "/tree/" + branch + "/" + relPath + "#L" + activeLine ;
+        url = url + "/tree/" + branch + "/" + relPath + "#L" + activeLine;
     }
 
     vscode.env.openExternal(vscode.Uri.parse(url));
@@ -736,7 +757,7 @@ export function activate(context: vscode.ExtensionContext) {
         selectProject
     );
     context.subscriptions.push(disposable);
-    
+
     disposable = vscode.commands.registerCommand(
         "vscode-projects.deleteproject",
         deleteProject
